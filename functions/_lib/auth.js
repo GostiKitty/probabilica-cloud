@@ -1,14 +1,22 @@
 export function getInitDataFromRequest(request) {
   const h = request.headers;
   return (
+    // то, что шлёт твой frontend/app.js
     h.get("X-Telegram-InitData") ||
     h.get("x-telegram-initdata") ||
+
+    // на всякий случай: если где-то будет другой клиент/код
+    h.get("X-TG-Init-Data") ||
+    h.get("x-tg-init-data") ||
+
     ""
   );
 }
 
 function toHex(buffer) {
-  return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, "0")).join("");
+  return [...new Uint8Array(buffer)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function hmacSha256Hex(keyBytes, message) {
@@ -19,12 +27,19 @@ async function hmacSha256Hex(keyBytes, message) {
     false,
     ["sign"]
   );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(message)
+  );
   return toHex(sig);
 }
 
 async function sha256Bytes(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text)
+  );
   return new Uint8Array(buf);
 }
 
@@ -35,8 +50,8 @@ function parseInitData(initData) {
   if (!hash) throw new Error("No hash in initData");
 
   params.delete("hash");
-  const entries = [...params.entries()].sort(([a],[b]) => a.localeCompare(b));
-  const dataCheckString = entries.map(([k,v]) => `${k}=${v}`).join("\n");
+  const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join("\n");
   return { hash, dataCheckString, params };
 }
 
@@ -62,10 +77,14 @@ export async function verifyInitData(initData, botToken) {
 export function json(status, obj) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
 
 export async function readJson(request) {
-  try { return await request.json(); } catch { return {}; }
+  try {
+    return await request.json();
+  } catch {
+    return {};
+  }
 }

@@ -15,9 +15,9 @@ async function tgCall(env, method, payload) {
 export async function onRequest({ request, env }) {
   console.log("WEBHOOK HIT", request.method);
 
-  // чтобы GET в браузере показывал, что функция живая
+  // GET — просто чтобы видеть, что endpoint жив
   if (request.method !== "POST") {
-    return json(200, { ok: true, note: "Send POST updates here" });
+    return json(200, { ok: true });
   }
 
   let update = null;
@@ -28,8 +28,6 @@ export async function onRequest({ request, env }) {
     return json(200, { ok: true });
   }
 
-  console.log("UPDATE", update);
-
   const msg = update?.message;
   const chatId = msg?.chat?.id;
   const text = (msg?.text || "").trim();
@@ -39,17 +37,17 @@ export async function onRequest({ request, env }) {
     return json(200, { ok: true });
   }
 
-  // отвечаем на ЛЮБОЕ сообщение, чтобы проверить, что бот жив
   if (chatId) {
-    const webappUrl = env.WEBAPP_URL || "https://probabilica-cloud.pages.dev";
+    // ВАЖНО: фронт у тебя в /frontend/
+    const webappUrl =
+      env.WEBAPP_URL || "https://probabilica-cloud.pages.dev/frontend/";
 
+    // одно короткое сообщение — без доп текста и эмодзи
     await tgCall(env, "sendMessage", {
       chat_id: chatId,
-      text: text === "/start"
-        ? "🎲 Probabilica готова! Жми кнопку ниже:"
-        : `Я получил: ${text}\nНажми кнопку, чтобы открыть игру:`,
+      text: text === "/start" ? "Probabilica" : "Probabilica",
       reply_markup: {
-        keyboard: [[{ text: "🎮 Играть в Probabilica", web_app: { url: webappUrl } }]],
+        keyboard: [[{ text: "Играть", web_app: { url: webappUrl } }]],
         resize_keyboard: true,
       },
     });

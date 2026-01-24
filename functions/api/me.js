@@ -1,14 +1,19 @@
-import { verifyInitData, json } from "../_lib/auth.js";
+import {
+  verifyInitData,
+  json,
+  getInitDataFromRequest
+} from "../_lib/auth.js";
+
 import { getOrCreatePlayer } from "../_lib/store.js";
-import { WHEEL, SPIN_COST, COOLDOWN_SEC } from "../_lib/wheel.js";
 
 export async function onRequest({ request, env }) {
   try {
-    const initData = request.headers.get("X-TG-Init-Data") || "";
+    const initData = getInitDataFromRequest(request);
     const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
 
     const p = await getOrCreatePlayer(env, userId, username);
 
+    // Чистый профиль — ровно то, что использует frontend/app.js
     return json(200, {
       user_id: p.user_id,
       username: p.username,
@@ -16,9 +21,6 @@ export async function onRequest({ request, env }) {
       coins: p.coins,
       level: p.level,
       xp: p.xp,
-      wheel: WHEEL.map(r => ({ id: r.id, label: r.label })),
-      spin_cost: SPIN_COST,
-      cooldown: COOLDOWN_SEC
     });
   } catch (e) {
     return json(401, { detail: `Auth failed: ${e.message || e}` });

@@ -1,9 +1,15 @@
-import { verifyInitData, json, readJson } from "../_lib/auth.js";
+import {
+  verifyInitData,
+  json,
+  readJson,
+  getInitDataFromRequest
+} from "../_lib/auth.js";
+
 import { getOrCreatePlayer, savePlayer } from "../_lib/store.js";
 
 export async function onRequest({ request, env }) {
   try {
-    const initData = request.headers.get("X-TG-Init-Data") || "";
+    const initData = getInitDataFromRequest(request);
     const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
 
     const payload = await readJson(request);
@@ -13,7 +19,18 @@ export async function onRequest({ request, env }) {
     p.avatar_id = avatar_id;
     await savePlayer(env, p);
 
-    return json(200, { ok: true, avatar_id });
+    // Возвращаем профиль — удобно фронту
+    return json(200, {
+      ok: true,
+      profile: {
+        user_id: p.user_id,
+        username: p.username,
+        avatar_id: p.avatar_id,
+        coins: p.coins,
+        level: p.level,
+        xp: p.xp,
+      },
+    });
   } catch (e) {
     return json(401, { detail: `Auth failed: ${e.message || e}` });
   }
