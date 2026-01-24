@@ -1,0 +1,216 @@
+:root {
+  --bg: #0a0a0a;
+  --panel: rgba(255, 255, 255, 0.06);
+  --panel2: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.10);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.55);
+  --muted2: rgba(255, 255, 255, 0.40);
+  --shadow: 0 18px 40px rgba(0,0,0,0.45);
+  --radius: 18px;
+  --radius2: 22px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(1200px 600px at 30% -10%, rgba(255,255,255,0.10), transparent),
+              radial-gradient(1000px 500px at 110% 10%, rgba(255,255,255,0.08), transparent),
+              var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue";
+}
+
+.app {
+  min-height: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 18px 14px 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.brand__title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-size: 20px;
+}
+.brand__subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.icon-btn:active { transform: translateY(1px); }
+
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--panel), rgba(255,255,255,0.04));
+  border-radius: var(--radius2);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.card--hero { padding: 16px; }
+
+.card__title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius);
+  padding: 10px 10px;
+}
+.metric__label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.metric__value {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn {
+  height: 44px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.btn--primary {
+  background: rgba(255,255,255,0.92);
+  color: #0a0a0a;
+  border-color: rgba(255,255,255,0.30);
+}
+.btn--primary:active { transform: translateY(1px); }
+
+.btn--secondary {
+  background: var(--panel2);
+  color: var(--text);
+}
+.btn--secondary:active { transform: translateY(1px); }
+
+.hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted2);
+  min-height: 16px;
+}
+
+.result {
+  font-size: 15px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.85);
+}
+
+.list { display: grid; gap: 10px; }
+.list__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+.list__key { color: var(--muted); }
+.list__val { color: rgba(255,255,255,0.88); text-align: right; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"; }
+
+.footer {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: var(--muted);
+}
+
+.link {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+.dot { opacity: 0.5; }
+
+.modal[hidden] { display: none; }
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 30;
+  padding: 16px;
+}
+.modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+}
+.modal__panel {
+  position: relative;
+  width: min(520px, 100%);
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: rgba(14,14,14,0.95);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+.modal__title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+.modal__body {
+  color: rgba(255,255,255,0.82);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+.modal__actions { display: grid; }

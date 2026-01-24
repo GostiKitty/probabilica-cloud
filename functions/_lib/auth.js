@@ -1,3 +1,12 @@
+export function getInitDataFromRequest(request) {
+  const h = request.headers;
+  return (
+    h.get("X-Telegram-InitData") ||
+    h.get("x-telegram-initdata") ||
+    ""
+  );
+}
+
 function toHex(buffer) {
   return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
