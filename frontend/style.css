@@ -1,3 +1,5 @@
+body { outline: 6px solid red !important; }
+
 :root {
   --bg: #0a0a0a;
   --panel: rgba(255, 255, 255, 0.06);
