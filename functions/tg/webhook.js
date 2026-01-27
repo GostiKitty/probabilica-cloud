@@ -42,7 +42,7 @@ export async function onRequest({ request, env }) {
     // ВАЖНО: /frontend/ обязательно со слэшем + добавляем v= чтобы Telegram не кешировал старую страницу
     const webappUrl =
       (env.WEBAPP_URL && env.WEBAPP_URL.trim()) ||
-      "https://probabilica-cloud.pages.dev/frontend/?v=10";
+      "https://probabilica-cloud.pages.dev/frontend/?v=12";
 
     await tgCall(env, "sendMessage", {
       chat_id: chatId,
