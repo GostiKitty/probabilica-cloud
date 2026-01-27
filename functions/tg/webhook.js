@@ -7,6 +7,7 @@ async function tgCall(env, method, payload) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
+
   const data = await res.json().catch(() => ({}));
   console.log("tgCall", method, "status", res.status, "resp", data);
   return data;
@@ -15,9 +16,9 @@ async function tgCall(env, method, payload) {
 export async function onRequest({ request, env }) {
   console.log("WEBHOOK HIT", request.method);
 
-  // GET — просто чтобы видеть, что endpoint жив
+  // GET — чтобы в браузере видеть, что функция живая
   if (request.method !== "POST") {
-    return json(200, { ok: true });
+    return json(200, { ok: true, note: "POST updates here" });
   }
 
   let update = null;
@@ -38,14 +39,14 @@ export async function onRequest({ request, env }) {
   }
 
   if (chatId) {
-    // ВАЖНО: фронт у тебя в /frontend/
+    // ВАЖНО: /frontend/ обязательно со слэшем + добавляем v= чтобы Telegram не кешировал старую страницу
     const webappUrl =
-      env.WEBAPP_URL || "https://probabilica-cloud.pages.dev/frontend/";
+      (env.WEBAPP_URL && env.WEBAPP_URL.trim()) ||
+      "https://probabilica-cloud.pages.dev/frontend/?v=10";
 
-    // одно короткое сообщение — без доп текста и эмодзи
     await tgCall(env, "sendMessage", {
       chat_id: chatId,
-      text: text === "/start" ? "Probabilica" : "Probabilica",
+      text: "Probabilica",
       reply_markup: {
         keyboard: [[{ text: "Играть", web_app: { url: webappUrl } }]],
         resize_keyboard: true,

@@ -5,13 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Probabilica</title>
 
-    <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- ВАЖНО:
-         Абсолютный путь гарантирует стили даже если Telegram открыл не /frontend/ а /frontend или вообще другой путь.
-         ?v=... убивает кеш Telegram -->
-    <link rel="stylesheet" href="/frontend/style.css?v=9" />
+    <!-- КРИТИЧЕСКИЕ СТИЛИ INLINE: чтобы не было "ч/б текста" даже если style.css не загрузится -->
+    <style>
+      :root { color-scheme: dark; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: #0a0a0a;
+        color: rgba(255,255,255,.92);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      }
+      .app { max-width: 520px; margin: 0 auto; padding: 18px 14px 16px; }
+    </style>
+
+    <!-- Абсолютный путь + кеш-бастинг -->
+    <link rel="stylesheet" href="/frontend/style.css?v=10" />
   </head>
 
   <body>
@@ -93,7 +103,7 @@
       </div>
     </div>
 
-    <!-- Абсолютный путь + анти-кеш -->
-    <script type="module" src="/frontend/app.js?v=9"></script>
+    <!-- ВАЖНО: без type="module", чтобы точно работало в WebView -->
+    <script src="/frontend/app.js?v=10"></script>
   </body>
 </html>
