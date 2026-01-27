@@ -7,52 +7,36 @@ async function tgCall(env, method, payload) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-
   const data = await res.json().catch(() => ({}));
-  console.log("tgCall", method, "status", res.status, "resp", data);
   return data;
 }
 
 export async function onRequest({ request, env }) {
-  console.log("WEBHOOK HIT", request.method);
+  if (request.method !== "POST") return json(200, { ok: true });
 
-  // GET — чтобы в браузере видеть, что функция живая
-  if (request.method !== "POST") {
-    return json(200, { ok: true, note: "POST updates here" });
+  let update;
+  try { update = await request.json(); } catch { return json(200, { ok: true }); }
+
+  const chatId = update?.message?.chat?.id;
+  if (!chatId || !env.BOT_TOKEN) return json(200, { ok: true });
+
+  // ВСЕГДА добавляем v=13 (если в переменной нет — добавим сами)
+  let webappUrl =
+    (env.WEBAPP_URL && env.WEBAPP_URL.trim()) ||
+    "https://probabilica-cloud.pages.dev/frontend/?v=13";
+
+  if (!webappUrl.includes("v=")) {
+    webappUrl += (webappUrl.includes("?") ? "&" : "?") + "v=13";
   }
 
-  let update = null;
-  try {
-    update = await request.json();
-  } catch (e) {
-    console.log("Bad JSON", e);
-    return json(200, { ok: true });
-  }
-
-  const msg = update?.message;
-  const chatId = msg?.chat?.id;
-  const text = (msg?.text || "").trim();
-
-  if (!env.BOT_TOKEN) {
-    console.log("Missing BOT_TOKEN env");
-    return json(200, { ok: true });
-  }
-
-  if (chatId) {
-    // ВАЖНО: /frontend/ обязательно со слэшем + добавляем v= чтобы Telegram не кешировал старую страницу
-    const webappUrl =
-      (env.WEBAPP_URL && env.WEBAPP_URL.trim()) ||
-      "https://probabilica-cloud.pages.dev/frontend/?v=12";
-
-    await tgCall(env, "sendMessage", {
-      chat_id: chatId,
-      text: "Probabilica",
-      reply_markup: {
-        keyboard: [[{ text: "Играть", web_app: { url: webappUrl } }]],
-        resize_keyboard: true,
-      },
-    });
-  }
+  await tgCall(env, "sendMessage", {
+    chat_id: chatId,
+    text: "Probabilica",
+    reply_markup: {
+      keyboard: [[{ text: "Играть", web_app: { url: webappUrl } }]],
+      resize_keyboard: true,
+    },
+  });
 
   return json(200, { ok: true });
 }

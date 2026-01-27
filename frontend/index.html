@@ -7,25 +7,20 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Критический минимум, чтобы всегда был тёмный фон -->
-    <style>
-      :root { color-scheme: dark; }
-      html, body { height: 100%; }
-      body { margin: 0; background: #0a0a0a; }
-    </style>
-
-    <link rel="stylesheet" href="/frontend/style.css?v=12" />
+    <!-- Абсолютные пути + v=13 -->
+    <link rel="stylesheet" href="/frontend/style.css?v=13" />
   </head>
 
   <body>
     <div class="app" id="app">
       <header class="topbar">
         <div class="brand">
-          <div class="brand__title">Probabilica</div>
+          <div class="brand__title">
+            Probabilica <span class="badge">v13</span>
+          </div>
           <div class="brand__subtitle" id="subtitle">Лобби</div>
         </div>
 
-        <!-- ВАЖНО: класс icon-btn--refresh, чтобы рисовалась иконка без символов -->
         <button class="icon-btn icon-btn--refresh" id="btnRefresh" aria-label="Обновить"></button>
       </header>
 
@@ -97,6 +92,6 @@
       </div>
     </div>
 
-    <script src="/frontend/app.js?v=12"></script>
+    <script src="/frontend/app.js?v=13"></script>
   </body>
 </html>
