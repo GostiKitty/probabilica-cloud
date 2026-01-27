@@ -73,11 +73,11 @@ ui.modalBackdrop.addEventListener("click", closeModal);
 ui.modalClose.addEventListener("click", closeModal);
 
 function setLoading(on) {
-  const ids = [ui.coins, ui.level, ui.xp, ui.name, ui.id, ui.avatar, ui.lastResult];
-  for (const node of ids) {
-    if (!node) continue;
-    node.classList.toggle("skeleton", on);
-    if (on) node.textContent = ""; // чисто
+  const nodes = [ui.coins, ui.level, ui.xp, ui.name, ui.id, ui.avatar, ui.lastResult];
+  for (const n of nodes) {
+    if (!n) continue;
+    n.classList.toggle("skeleton", on);
+    if (on) n.textContent = "";
   }
 }
 
@@ -117,7 +117,7 @@ async function spin() {
   }
 }
 
-// пока оставим prompt, дальше заменим на галерею
+// пока простая смена — дальше заменим на галерею
 async function chooseAvatar() {
   const next = prompt("Введите ID аватара (например a1)");
   if (!next) return;
@@ -146,7 +146,6 @@ ui.btnSupport.addEventListener("click", () =>
   openModal("Поддержка", "Если что-то не работает, откройте игру заново и нажмите «Обновить».")
 );
 
-// Boot
 (async function boot() {
   initTelegramUi();
 

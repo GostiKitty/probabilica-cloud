@@ -7,8 +7,7 @@ async function tgCall(env, method, payload) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await res.json().catch(() => ({}));
-  return data;
+  return await res.json().catch(() => ({}));
 }
 
 export async function onRequest({ request, env }) {
@@ -20,13 +19,12 @@ export async function onRequest({ request, env }) {
   const chatId = update?.message?.chat?.id;
   if (!chatId || !env.BOT_TOKEN) return json(200, { ok: true });
 
-  // ВСЕГДА добавляем v=13 (если в переменной нет — добавим сами)
   let webappUrl =
     (env.WEBAPP_URL && env.WEBAPP_URL.trim()) ||
-    "https://probabilica-cloud.pages.dev/frontend/?v=13";
+    "https://probabilica-cloud.pages.dev/?v=14";
 
   if (!webappUrl.includes("v=")) {
-    webappUrl += (webappUrl.includes("?") ? "&" : "?") + "v=13";
+    webappUrl += (webappUrl.includes("?") ? "&" : "?") + "v=14";
   }
 
   await tgCall(env, "sendMessage", {
