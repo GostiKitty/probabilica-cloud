@@ -4,9 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Probabilica</title>
-    <link rel="stylesheet" href="./style.css" />
+
+    <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- ВАЖНО:
+         Абсолютный путь гарантирует стили даже если Telegram открыл не /frontend/ а /frontend или вообще другой путь.
+         ?v=... убивает кеш Telegram -->
+    <link rel="stylesheet" href="/frontend/style.css?v=9" />
   </head>
+
   <body>
     <div class="app" id="app">
       <header class="header">
@@ -14,9 +21,7 @@
           <div class="brand__title">Probabilica</div>
           <div class="brand__subtitle" id="subtitle">Лобби</div>
         </div>
-        <button class="icon-btn" id="btnRefresh" aria-label="Обновить">
-          ↻
-        </button>
+        <button class="icon-btn" id="btnRefresh" aria-label="Обновить">↻</button>
       </header>
 
       <main class="grid">
@@ -88,6 +93,7 @@
       </div>
     </div>
 
-    <script type="module" src="./app.js"></script>
+    <!-- Абсолютный путь + анти-кеш -->
+    <script type="module" src="/frontend/app.js?v=9"></script>
   </body>
 </html>

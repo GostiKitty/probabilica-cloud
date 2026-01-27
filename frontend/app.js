@@ -14,8 +14,13 @@ function initData() {
   return tg?.initData || "";
 }
 
+function apiBase() {
+  // чтобы работало и в Telegram, и в браузере одинаково
+  return window.location.origin;
+}
+
 async function api(path, body) {
-  const res = await fetch(path, {
+  const res = await fetch(apiBase() + path, {
     method: body ? "POST" : "GET",
     headers: {
       "Content-Type": "application/json",
@@ -98,8 +103,7 @@ async function spin() {
   setHint("Крутка…");
   try {
     const r = await api("/api/spin", {});
-    ui.lastResult.textContent = r.text || "Готово";
-    // ожидаем, что сервер вернёт новый профиль
+    ui.lastResult.textContent = r.text || r.result_text || "Готово";
     if (r.profile) renderProfile(r.profile);
     setHint("");
   } catch (e) {
@@ -110,9 +114,9 @@ async function spin() {
 }
 
 async function chooseAvatar() {
-  // простейший выбор — можно потом заменить на красивую галерею
   const next = prompt("Введите ID аватара (например a1)");
   if (!next) return;
+
   ui.btnAvatar.disabled = true;
   setHint("Сохранение…");
   try {
@@ -140,7 +144,10 @@ ui.btnSupport.addEventListener("click", () =>
 (async function boot() {
   initTelegramUi();
 
-  // если открыли не из Telegram — покажем аккуратное сообщение
+  console.log("[Probabilica] href:", window.location.href);
+  console.log("[Probabilica] hasTelegram:", !!tg);
+  console.log("[Probabilica] initDataLen:", initData().length);
+
   if (!initData()) {
     ui.subtitle.textContent = "Открывайте через Telegram";
     setHint("Требуется запуск из кнопки в боте.");
