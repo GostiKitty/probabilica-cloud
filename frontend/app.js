@@ -14,13 +14,8 @@ function initData() {
   return tg?.initData || "";
 }
 
-function apiBase() {
-  // чтобы работало и в Telegram, и в браузере одинаково
-  return window.location.origin;
-}
-
 async function api(path, body) {
-  const res = await fetch(apiBase() + path, {
+  const res = await fetch(path, {
     method: body ? "POST" : "GET",
     headers: {
       "Content-Type": "application/json",
@@ -40,7 +35,6 @@ async function api(path, body) {
   return data;
 }
 
-// UI helpers
 const el = (id) => document.getElementById(id);
 const ui = {
   subtitle: el("subtitle"),
@@ -69,29 +63,38 @@ function setHint(msg) {
 }
 
 function openModal(title, body) {
-  ui.modalTitle.textContent = title;
-  ui.modalBody.textContent = body;
+  ui.modalTitle.textContent = title || "";
+  ui.modalBody.textContent = body || "";
   ui.modal.hidden = false;
 }
-
-function closeModal() {
-  ui.modal.hidden = true;
-}
+function closeModal() { ui.modal.hidden = true; }
 
 ui.modalBackdrop.addEventListener("click", closeModal);
 ui.modalClose.addEventListener("click", closeModal);
 
+function setLoading(on) {
+  const ids = [ui.coins, ui.level, ui.xp, ui.name, ui.id, ui.avatar, ui.lastResult];
+  for (const node of ids) {
+    if (!node) continue;
+    node.classList.toggle("skeleton", on);
+    if (on) node.textContent = ""; // чисто
+  }
+}
+
 function renderProfile(p) {
+  setLoading(false);
+
   ui.coins.textContent = String(p.coins ?? 0);
   ui.level.textContent = String(p.level ?? 1);
   ui.xp.textContent = String(p.xp ?? 0);
 
-  ui.name.textContent = p.username || p.first_name || "—";
-  ui.id.textContent = String(p.user_id || "—");
-  ui.avatar.textContent = p.avatar_id || "—";
+  ui.name.textContent = p.username || p.first_name || "player";
+  ui.id.textContent = String(p.user_id || "");
+  ui.avatar.textContent = p.avatar_id || "a1";
 }
 
 async function loadMe() {
+  setLoading(true);
   setHint("Загрузка…");
   const me = await api("/api/me");
   renderProfile(me);
@@ -103,6 +106,7 @@ async function spin() {
   setHint("Крутка…");
   try {
     const r = await api("/api/spin", {});
+    ui.lastResult.classList.remove("skeleton");
     ui.lastResult.textContent = r.text || r.result_text || "Готово";
     if (r.profile) renderProfile(r.profile);
     setHint("");
@@ -113,6 +117,7 @@ async function spin() {
   }
 }
 
+// пока оставим prompt, дальше заменим на галерею
 async function chooseAvatar() {
   const next = prompt("Введите ID аватара (например a1)");
   if (!next) return;
@@ -133,6 +138,7 @@ async function chooseAvatar() {
 ui.btnSpin.addEventListener("click", spin);
 ui.btnAvatar.addEventListener("click", chooseAvatar);
 ui.btnRefresh.addEventListener("click", () => loadMe().catch(err => setHint(err.message)));
+
 ui.btnRules.addEventListener("click", () =>
   openModal("Правила", "Игра использует внутриигровые очки. Реальные деньги не участвуют.")
 );
@@ -144,28 +150,17 @@ ui.btnSupport.addEventListener("click", () =>
 (async function boot() {
   initTelegramUi();
 
-  console.log("[Probabilica] href:", window.location.href);
-  console.log("[Probabilica] hasTelegram:", !!tg);
-  console.log("[Probabilica] initDataLen:", initData().length);
-
   if (!initData()) {
     ui.subtitle.textContent = "Открывайте через Telegram";
-    setHint("Требуется запуск из кнопки в боте.");
+    setHint("Запустите мини-приложение из бота.");
+    setLoading(false);
     return;
-
-    ui.coins.classList.add("skeleton");
-    ui.level.classList.add("skeleton");
-    ui.xp.classList.add("skeleton");
-    ui.name.classList.add("skeleton");
-    ui.id.classList.add("skeleton");
-    ui.avatar.classList.add("skeleton");
-    ui.lastResult.classList.add("skeleton");
-}
+  }
 
   try {
     await loadMe();
   } catch (e) {
+    setLoading(false);
     setHint(e.message || "Ошибка загрузки");
   }
 })();
-
