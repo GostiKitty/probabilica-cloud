@@ -26,7 +26,21 @@ export async function onRequest({ request, env }) {
   const bonusMode = (p.bonus_until || 0) > now;
   const seed = Math.floor(Math.random() * 1e9);
 
-  const r = spinSlot({ seed, bonusMode });
+  // достаем luck из char-строки avatar_id
+  function parseLuck(avatarId) {
+    const s = String(avatarId || "");
+    if (!s.startsWith("char|")) return 1;
+    const parts = s.split("|");
+    for (const p of parts) {
+      const [k, v] = p.split("=");
+      if (k === "luck") return Math.max(1, Math.min(50, Number(v) || 1));
+    }
+    return 1;
+  }
+
+  const luck = parseLuck(p.avatar_id);
+  const r = spinSlot({ seed, bonusMode, luck });
+
 
   // consume free spin if exists
   if (hasFree) p.free_spins = Math.max(0, (p.free_spins || 0) - 1);
@@ -67,6 +81,27 @@ export async function onRequest({ request, env }) {
     p.xp -= need(p.level || 1);
     p.level = (p.level || 1) + 1;
   }
+  // apply drop effects (простые и честные)
+  let appliedDrop = null;
+  if (r.drop) {
+    appliedDrop = r.drop;
+
+    if (r.drop.effect === "meter+2") {
+      p.meter = clamp((p.meter || 0) + 2, 0, 10);
+      if (p.meter >= 10) {
+        p.free_spins = (p.free_spins || 0) + 3;
+        p.meter = 0;
+      }
+    } else if (r.drop.effect === "coins+5") {
+      p.coins = (p.coins || 0) + 5;
+    } else if (r.drop.effect === "free+1") {
+      p.free_spins = (p.free_spins || 0) + 1;
+    } else if (r.drop.effect === "xp+3") {
+      p.xp = (p.xp || 0) + 3;
+    } else if (r.drop.effect === "bonus+30s") {
+      p.bonus_until = Math.max(p.bonus_until || 0, now) + 30_000;
+    }
+  }
 
   p.last_spin_ts = now;
   await savePlayer(env, p);
@@ -91,6 +126,8 @@ export async function onRequest({ request, env }) {
       meter_triggered: meterTriggered,
       scatter_triggered: scatterTriggered,
       bonus_until: p.bonus_until || 0
+      drop: appliedDrop,
+
     },
     profile: p
   });

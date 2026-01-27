@@ -121,6 +121,7 @@ function setLang(l) {
   LANG = l;
   localStorage.setItem("lang", l);
   renderStaticText();
+  renderSpicy();
   loadFriends().catch(()=>{});
   loadDuels().catch(()=>{});
   pickEnemy();
@@ -231,6 +232,14 @@ const ui = {
   slotHistory: el("slotHistory"),
   slotGlow: el("slotGlow"),
   ttlHistory: el("ttlHistory"),
+  payline: document.querySelector(".payline"),
+  drop: el("drop"),
+  dropTitle: el("dropTitle"),
+  dropSub: el("dropSub"),
+  btnSpicy: el("btnSpicy"),
+
+
+
 
 };
 
@@ -275,6 +284,7 @@ function renderStaticText() {
   ui.btnSlotSpin.textContent = t("slotSpin");
   ui.btnAuto.textContent = t("slotAuto");
   ui.ttlHistory.textContent = t("history");
+  
 
 }
 
@@ -509,12 +519,13 @@ ui.btnCreateDuel.addEventListener("click", async () => {
 const SYMBOL_LABEL = {
   BAR: "BAR",
   BELL: "BELL",
-  SEVEN: "SEVEN",
-  CHERRY: "CHERRY",
+  SEVEN: "VII",
+  CHERRY: "CH",
   STAR: "STAR",
   COIN: "COIN",
-  SCATTER: "SCATTER",
+  SCATTER: "PASS",
 };
+
 
 let autoMode = localStorage.getItem("auto") === "1";
 let spicy = localStorage.getItem("spicy") !== "0"; // по умолчанию да
@@ -577,7 +588,7 @@ function buildReelStrip(elStrip) {
     const s = order[i % order.length];
     rows.push(s);
   }
-  elStrip.innerHTML = rows.map(s => `<div class="sym sym--${s}">${SYMBOL_LABEL[s]}</div>`).join("");
+  elStrip.innerHTML = rows.map(s => `<div class="sym sym--${s}"><span>${SYMBOL_LABEL[s]}</span></div>`).join("");
   return rows;
 }
 
@@ -623,6 +634,9 @@ function setGlow(kind, bonusUntil) {
   if (kind === "big") ui.slotGlow.classList.add("is-big");
   if (kind === "scatter") ui.slotGlow.classList.add("is-bonus");
   if (bonusUntil && bonusUntil > Date.now()) ui.slotGlow.classList.add("is-bonus");
+  ui.payline?.classList.toggle("is-hit", kind === "win" || kind === "big" || kind === "scatter");
+  if (kind === "near") ui.payline?.classList.remove("is-hit");
+
 }
 
 let spinningSlot = false;
@@ -697,6 +711,14 @@ async function slotSpinOnce() {
       // slight delay
       setTimeout(() => slotSpinOnce(), 450);
     }
+    if (spin.drop) {
+      ui.drop.hidden = false;
+      ui.dropTitle.textContent = spin.drop.title || "Drop";
+      ui.dropSub.textContent = spin.drop.effect || "";
+    } else {
+      ui.drop.hidden = true;
+    }
+
   }, 1250);
 }
 
@@ -734,3 +756,14 @@ setAuto(autoMode);
     setLoading(false);
   }
 })();
+function renderSpicy() {
+  ui.btnSpicy.textContent = spicy ? "On" : "Off";
+  ui.btnSpicy.classList.toggle("btn--primary", spicy);
+  ui.btnSpicy.classList.toggle("btn--secondary", !spicy);
+}
+ui.btnSpicy.addEventListener("click", () => {
+  spicy = !spicy;
+  localStorage.setItem("spicy", spicy ? "1" : "0");
+  renderSpicy();
+});
+

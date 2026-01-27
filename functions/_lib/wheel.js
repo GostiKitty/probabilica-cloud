@@ -46,17 +46,28 @@ function isNearMiss(a, b, c) {
   if (a === "SCATTER" || b === "SCATTER" || c === "SCATTER") return false;
   return (a === b && b !== c) || (a === c && a !== b) || (b === c && a !== b);
 }
-
-export function spinSlot({ seed, bonusMode = false }) {
+export function spinSlot({ seed, bonusMode = false, luck = 1 }) {
   const rng = mulberry32(seed);
 
-  // bonusMode: чуть повышаем шанс редких
+  // luck влияет мягко: чуть чаще редкие, чуть чаще scatter
+  const luckBoost = Math.min(0.18, Math.max(0, (luck - 1) * 0.012)); // 0..0.18
+
   const roll = () => {
-    if (!bonusMode) return pickWeighted(rng);
-    // в бонусе иногда “подталкиваем” к STAR/SEVEN
+    // bonusMode: чуть повышаем шанс STAR/SEVEN
     const x = rng();
-    if (x < 0.06) return "SEVEN";
-    if (x < 0.14) return "STAR";
+
+    // scatter шанс слегка растёт от luck
+    if (x < 0.035 + luckBoost * 0.45) return "SCATTER";
+
+    if (bonusMode) {
+      if (x < 0.06 + luckBoost * 0.25) return "SEVEN";
+      if (x < 0.14 + luckBoost * 0.25) return "STAR";
+    } else {
+      // вне бонуса очень редко даём SEVEN/STAR по luck
+      if (x < 0.018 + luckBoost * 0.18) return "SEVEN";
+      if (x < 0.050 + luckBoost * 0.20) return "STAR";
+    }
+
     return pickWeighted(rng);
   };
 
@@ -84,13 +95,38 @@ export function spinSlot({ seed, bonusMode = false }) {
     winXp = 1;
   } else {
     winCoins = 0;
-    winXp = 1; // чтобы “не больно” и был прогресс
+    winXp = 1;
+  }
+
+  // drops (трофеи): редкий шанс, больше в big/scatter и с luck
+  let drop = null;
+  const dropRoll = rng();
+  const baseDrop =
+    kind === "scatter" ? 0.22 :
+    kind === "big" ? 0.14 :
+    kind === "win" ? 0.06 :
+    kind === "near" ? 0.03 : 0.015;
+
+  const dropChance = Math.min(0.35, baseDrop + luckBoost * 0.30 + (bonusMode ? 0.03 : 0));
+
+  if (dropRoll < dropChance) {
+    // 3 стиля трофеев — выбор по luck/рандому, но без эмодзи
+    const pack = [
+      { id: "ticket", title: "Талончик удачи", effect: "meter+2" },
+      { id: "receipt", title: "Lucky receipt", effect: "coins+5" },
+      { id: "fuxian", title: "福签", effect: "free+1" },
+      { id: "key", title: "Spare key", effect: "xp+3" },
+      { id: "coinseal", title: "Монетная печать", effect: "bonus+30s" },
+    ];
+    drop = pack[Math.floor(rng() * pack.length)];
   }
 
   return {
     symbols: [a, b, c],
     kind,
     winCoins,
-    winXp
+    winXp,
+    drop
   };
 }
+
