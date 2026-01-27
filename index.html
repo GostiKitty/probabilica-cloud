@@ -1,10 +1,4 @@
 <!doctype html>
-<style>
-  body { background: #0a0a0a !important; color: white !important; }
-  .brand__title { font-family: Arial !important; font-size: 28px !important; }
-  .btn { background: white !important; color: black !important; padding: 12px 16px !important; }
-</style>
-
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
@@ -13,8 +7,8 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Абсолютные пути + v=13 -->
-    <link rel="stylesheet" href="/frontend/style.css?v=13" />
+    <!-- теперь файлы в корне -->
+    <link rel="stylesheet" href="/style.css?v=14" />
   </head>
 
   <body>
@@ -22,7 +16,7 @@
       <header class="topbar">
         <div class="brand">
           <div class="brand__title">
-            Probabilica <span class="badge">v13</span>
+            Probabilica <span class="badge">v14</span>
           </div>
           <div class="brand__subtitle" id="subtitle">Лобби</div>
         </div>
@@ -98,6 +92,7 @@
       </div>
     </div>
 
-    <script src="/frontend/app.js?v=13"></script>
+    <!-- теперь js в корне -->
+    <script src="/app.js?v=14"></script>
   </body>
 </html>
