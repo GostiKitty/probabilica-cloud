@@ -152,7 +152,15 @@ ui.btnSupport.addEventListener("click", () =>
     ui.subtitle.textContent = "Открывайте через Telegram";
     setHint("Требуется запуск из кнопки в боте.");
     return;
-  }
+
+    ui.coins.classList.add("skeleton");
+    ui.level.classList.add("skeleton");
+    ui.xp.classList.add("skeleton");
+    ui.name.classList.add("skeleton");
+    ui.id.classList.add("skeleton");
+    ui.avatar.classList.add("skeleton");
+    ui.lastResult.classList.add("skeleton");
+}
 
   try {
     await loadMe();
@@ -160,3 +168,4 @@ ui.btnSupport.addEventListener("click", () =>
     setHint(e.message || "Ошибка загрузки");
   }
 })();
+
