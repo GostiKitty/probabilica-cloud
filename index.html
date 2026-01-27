@@ -4,155 +4,148 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Probabilica</title>
-
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="/style.css?v=20" />
+    <link rel="stylesheet" href="/style.css" />
   </head>
 
   <body>
     <div class="app" id="app">
       <header class="topbar">
         <div class="brand">
-          <div class="brand__title">
-            Probabilica <span class="badge">v20</span>
-          </div>
-          <div class="brand__subtitle" id="subtitle">Лобби</div>
+          <div class="brand__title">Probabilica</div>
+          <div class="brand__subtitle" id="subtitle">Lobby</div>
         </div>
 
-        <button class="icon-btn icon-btn--refresh" id="btnRefresh" aria-label="Обновить"></button>
+        <div class="topbar__right">
+          <button class="icon-btn icon-btn--refresh" id="btnRefresh" aria-label="Обновить"></button>
+          <button class="icon-btn icon-btn--gear" id="btnSettings" aria-label="Настройки"></button>
+        </div>
       </header>
 
+      <section class="card">
+        <div class="hud">
+          <div class="hud__pill">
+            <div class="hud__k" id="lblCoins">Coins</div>
+            <div class="hud__v skeleton" id="coins"></div>
+          </div>
+          <div class="hud__pill">
+            <div class="hud__k" id="lblLevel">Level</div>
+            <div class="hud__v skeleton" id="level"></div>
+          </div>
+          <div class="hud__pill">
+            <div class="hud__k" id="lblXp">XP</div>
+            <div class="hud__v skeleton" id="xp"></div>
+          </div>
+        </div>
+
+        <div class="friendcode">
+          <div class="friendcode__k" id="lblFriendCode">Friend code</div>
+          <div class="friendcode__v mono" id="friendCode">—</div>
+          <button class="mini-btn" id="btnCopyCode">Copy</button>
+        </div>
+
+        <div class="hint" id="hint"></div>
+      </section>
+
+      <nav class="tabs">
+        <button class="tab tab--active" data-tab="fight" id="tabFight">Fight</button>
+        <button class="tab" data-tab="friends" id="tabFriends">Friends</button>
+        <button class="tab" data-tab="slot" id="tabSlot">Slot</button>
+      </nav>
+
       <main class="content">
-        <section class="card card--hero">
-          <div class="stats">
-            <div class="stat">
-              <div class="stat__label">Монеты</div>
-              <div class="stat__value skeleton" id="coins"></div>
-            </div>
-            <div class="stat">
-              <div class="stat__label">Уровень</div>
-              <div class="stat__value skeleton" id="level"></div>
-            </div>
-            <div class="stat">
-              <div class="stat__label">Опыт</div>
-              <div class="stat__value skeleton" id="xp"></div>
-            </div>
+        <!-- FIGHT -->
+        <section class="card" data-panel="fight">
+          <div class="card__title" id="ttlPve">PvE</div>
+          <div class="enemy">
+            <div class="enemy__name" id="enemyName">—</div>
+            <div class="enemy__sub" id="enemySub">—</div>
           </div>
 
-          <!-- Визуальный спин -->
-          <div class="wheel-wrap">
-            <div class="wheel">
-              <div class="wheel__pointer"></div>
-              <div class="wheel__ring" id="wheelRing">
-                <div class="wheel__segments" id="wheelSegments"></div>
-              </div>
-            </div>
+          <div class="row3">
+            <button class="btn btn--secondary stake" data-stake="10">10</button>
+            <button class="btn btn--secondary stake" data-stake="25">25</button>
+            <button class="btn btn--secondary stake" data-stake="50">50</button>
           </div>
 
-          <div class="actions">
-            <button class="btn btn--primary" id="btnSpin">Крутить</button>
-            <button class="btn btn--secondary" id="btnAvatar">Создать аватар</button>
-          </div>
+          <button class="btn btn--primary" id="btnPveFight">Fight</button>
 
-          <div class="hint" id="hint"></div>
+          <div class="result" id="fightLog"></div>
+
+          <div class="divider"></div>
+
+          <div class="card__title" id="ttlPvp">PvP</div>
+          <div class="row2">
+            <input class="input mono" id="pvpToId" placeholder="friend id" />
+            <select class="input" id="pvpStake">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+          <button class="btn btn--secondary" id="btnCreateDuel">Challenge</button>
+
+          <div class="result" id="duelLog"></div>
         </section>
 
-        <section class="card">
-          <div class="card__title">Последний результат</div>
-          <div class="result skeleton" id="lastResult"></div>
+        <!-- FRIENDS -->
+        <section class="card" data-panel="friends" hidden>
+          <div class="card__title" id="ttlFriends">Friends</div>
+
+          <div class="row2">
+            <input class="input mono" id="friendIdInput" placeholder="friend id" />
+            <button class="btn btn--secondary" id="btnAddFriend">Add</button>
+          </div>
+
+          <div class="list" id="friendsList"></div>
+
+          <div class="divider"></div>
+
+          <div class="card__title" id="ttlDuels">Duels</div>
+          <div class="list" id="duelsList"></div>
         </section>
 
-        <section class="card">
-          <div class="card__title">Профиль</div>
-          <div class="profile">
-            <div class="avatar-pill" id="avatarPill">
-              <div class="avatar-pill__dot" id="avatarDot"></div>
-              <div class="avatar-pill__text">
-                <div class="avatar-pill__top" id="avatarName">—</div>
-                <div class="avatar-pill__sub mono" id="avatarId">—</div>
-              </div>
-            </div>
-
-            <div class="kv">
-              <div class="kv__row">
-                <div class="kv__key">Имя</div>
-                <div class="kv__val skeleton" id="name"></div>
-              </div>
-              <div class="kv__row">
-                <div class="kv__key">ID</div>
-                <div class="kv__val mono skeleton" id="id"></div>
-              </div>
-            </div>
+        <!-- SLOT (пока заглушка, чтобы ты видела вкладку) -->
+        <section class="card" data-panel="slot" hidden>
+          <div class="card__title">Slot</div>
+          <div class="result">
+            С основа.
           </div>
         </section>
       </main>
-
-      <footer class="footer">
-        <div class="footer__row">
-          <button class="link" id="btnRules">Правила</button>
-          <button class="link" id="btnSupport">Поддержка</button>
-        </div>
-      </footer>
     </div>
 
-    <!-- Общий модал -->
-    <div class="modal" id="modal" hidden>
-      <div class="modal__backdrop" id="modalBackdrop"></div>
-      <div class="modal__panel">
-        <div class="modal__title" id="modalTitle"></div>
-        <div class="modal__body" id="modalBody"></div>
-        <div class="modal__actions">
-          <button class="btn btn--secondary" id="modalClose">Закрыть</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Модал: создание аватара -->
-    <div class="modal" id="avatarModal" hidden>
-      <div class="modal__backdrop" id="avatarBackdrop"></div>
+    <!-- SETTINGS MODAL -->
+    <div class="modal" id="settingsModal" hidden>
+      <div class="modal__backdrop" id="settingsBackdrop"></div>
       <div class="modal__panel">
         <div class="modal__head">
-          <div class="modal__title">Создание аватара</div>
-          <button class="icon-btn icon-btn--close" id="avatarClose" aria-label="Закрыть"></button>
+          <div class="modal__title" id="ttlSettings">Settings</div>
+          <button class="icon-btn icon-btn--close" id="settingsClose" aria-label="Закрыть"></button>
         </div>
 
-        <div class="avatar-maker">
-          <div class="avatar-preview" id="avatarPreview">
-            <div class="avatar-preview__dot" id="makerDot"></div>
-            <div class="avatar-preview__symbol" id="makerSymbol">◻︎</div>
+        <div class="field">
+          <div class="field__label" id="lblLang">Language</div>
+          <div class="row3">
+            <button class="btn btn--secondary lang" data-lang="ru">RU</button>
+            <button class="btn btn--secondary lang" data-lang="en">EN</button>
+            <button class="btn btn--secondary lang" data-lang="cn">CN</button>
           </div>
+        </div>
 
-          <div class="form">
-            <label class="field">
-              <span class="field__label">Название</span>
-              <input class="input" id="makerName" maxlength="18" placeholder="Например: Noir" />
-            </label>
-
-            <label class="field">
-              <span class="field__label">Символ</span>
-              <input class="input" id="makerSymbolInput" maxlength="2" placeholder="◻︎" />
-            </label>
-
-            <label class="field">
-              <span class="field__label">Цвет</span>
-              <input class="input" id="makerColor" type="color" value="#A78BFA" />
-            </label>
-
-            <div class="row2">
-              <button class="btn btn--secondary" id="makerRandom">Случайно</button>
-              <button class="btn btn--primary" id="makerSave">Сохранить</button>
-            </div>
-
-            <div class="hint" id="makerHint"></div>
+        <div class="field">
+          <div class="field__label">Tone</div>
+          <div class="result" style="margin-top:8px">
+            Мат бывает .
           </div>
         </div>
 
         <div class="modal__actions">
-          <button class="btn btn--secondary" id="avatarCancel">Закрыть</button>
+          <button class="btn btn--secondary" id="settingsOk">OK</button>
         </div>
       </div>
     </div>
 
-    <script src="/app.js?v=20"></script>
+    <script src="/app.js"></script>
   </body>
 </html>

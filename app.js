@@ -35,402 +35,450 @@ async function api(path, body) {
   return data;
 }
 
+/* -------- i18n -------- */
+const I18N = {
+  ru: {
+    lobby: "Лобби",
+    coins: "Монеты",
+    level: "Уровень",
+    xp: "Опыт",
+    friendCode: "Friend code",
+    copy: "Скопировать",
+    fight: "Бой",
+    friends: "Друзья",
+    slot: "Слот",
+    pve: "PvE",
+    pvp: "PvP",
+    add: "Добавить",
+    duels: "Дуэли",
+    settings: "Настройки",
+    language: "Язык",
+    challenge: "Вызвать",
+    accept: "Принять",
+  },
+  en: {
+    lobby: "Lobby",
+    coins: "Coins",
+    level: "Level",
+    xp: "XP",
+    friendCode: "Friend code",
+    copy: "Copy",
+    fight: "Fight",
+    friends: "Friends",
+    slot: "Slot",
+    pve: "PvE",
+    pvp: "PvP",
+    add: "Add",
+    duels: "Duels",
+    settings: "Settings",
+    language: "Language",
+    challenge: "Challenge",
+    accept: "Accept",
+  },
+  cn: {
+    lobby: "大厅",
+    coins: "硬币",
+    level: "等级",
+    xp: "经验",
+    friendCode: "好友码",
+    copy: "复制",
+    fight: "战斗",
+    friends: "好友",
+    slot: "老虎机",
+    pve: "PvE",
+    pvp: "PvP",
+    add: "添加",
+    duels: "决斗",
+    settings: "设置",
+    language: "语言",
+    challenge: "挑战",
+    accept: "接受",
+  }
+};
+let LANG = localStorage.getItem("lang") || "ru";
+function t(key) {
+  return (I18N[LANG] && I18N[LANG][key]) || key;
+}
+function setLang(l) {
+  LANG = l;
+  localStorage.setItem("lang", l);
+  renderStaticText();
+  loadFriends().catch(()=>{});
+  loadDuels().catch(()=>{});
+  pickEnemy();
+}
+
+/* -------- enemies -------- */
+const ENEMIES = {
+  ru: [
+    { name: "Человек из УК", sub: "всегда прав, особенно когда неправ" },
+    { name: "Сосед с перфоратором", sub: "урон по расписанию: всегда" },
+    { name: "Авито-логист", sub: "«я уже выехал» — третий день" },
+    { name: "Хранитель подъездного чата", sub: "режет удачу морально" },
+    { name: "Кассир без сдачи", sub: "обнуляет твою надежду" },
+    { name: "Парень «верну щас»", sub: "умеет жить без монет" },
+  ],
+  en: [
+    { name: "LinkedIn Paladin", sub: "buffs himself with motivation quotes" },
+    { name: "DoorDash Stoic", sub: "arrives late, hits first" },
+    { name: "Crypto Since 2021", sub: "sometimes damages himself" },
+    { name: "Pre-Revenue Founder", sub: "big pitch, tiny damage" },
+    { name: "Gym Algorithm", sub: "STR high, INT optional" },
+    { name: "Spreadsheet Wizard", sub: "crit chance suspiciously consistent" },
+  ],
+  cn: [
+    { name: "美团骑手·超时警告", sub: "快，但状态条很短" },
+    { name: "小红书审判官", sub: "一句话让你怀疑 себя" },
+    { name: "夜市秤王", sub: "всегда знает, где ты недовесил" },
+    { name: "红包计算器", sub: "считает выгоду быстрее тебя" },
+    { name: "早八学生·愤怒版", sub: "маленький, но злой" },
+    { name: "老板不在店", sub: "непредсказуем по таймингам" },
+  ]
+};
+
+function randFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
 const el = (id) => document.getElementById(id);
 const ui = {
   subtitle: el("subtitle"),
   coins: el("coins"),
   level: el("level"),
   xp: el("xp"),
-  name: el("name"),
-  id: el("id"),
-  lastResult: el("lastResult"),
   hint: el("hint"),
 
-  btnSpin: el("btnSpin"),
-  btnAvatar: el("btnAvatar"),
+  friendCode: el("friendCode"),
+  btnCopyCode: el("btnCopyCode"),
+
   btnRefresh: el("btnRefresh"),
-  btnRules: el("btnRules"),
-  btnSupport: el("btnSupport"),
+  btnSettings: el("btnSettings"),
 
-  modal: el("modal"),
-  modalBackdrop: el("modalBackdrop"),
-  modalTitle: el("modalTitle"),
-  modalBody: el("modalBody"),
-  modalClose: el("modalClose"),
+  // tabs
+  tabs: [...document.querySelectorAll(".tab")],
+  panels: [...document.querySelectorAll("[data-panel]")],
 
-  // wheel
-  wheelSegments: el("wheelSegments"),
-  wheelRing: el("wheelRing"),
+  // labels
+  lblCoins: el("lblCoins"),
+  lblLevel: el("lblLevel"),
+  lblXp: el("lblXp"),
+  lblFriendCode: el("lblFriendCode"),
 
-  // profile avatar
-  avatarDot: el("avatarDot"),
-  avatarName: el("avatarName"),
-  avatarId: el("avatarId"),
+  tabFight: el("tabFight"),
+  tabFriends: el("tabFriends"),
+  tabSlot: el("tabSlot"),
 
-  // avatar maker modal
-  avatarModal: el("avatarModal"),
-  avatarBackdrop: el("avatarBackdrop"),
-  avatarClose: el("avatarClose"),
-  avatarCancel: el("avatarCancel"),
-  makerDot: el("makerDot"),
-  makerSymbol: el("makerSymbol"),
-  makerName: el("makerName"),
-  makerSymbolInput: el("makerSymbolInput"),
-  makerColor: el("makerColor"),
-  makerRandom: el("makerRandom"),
-  makerSave: el("makerSave"),
-  makerHint: el("makerHint"),
+  // fight
+  enemyName: el("enemyName"),
+  enemySub: el("enemySub"),
+  stakes: [...document.querySelectorAll(".stake")],
+  btnPveFight: el("btnPveFight"),
+  fightLog: el("fightLog"),
+
+  pvpToId: el("pvpToId"),
+  pvpStake: el("pvpStake"),
+  btnCreateDuel: el("btnCreateDuel"),
+  duelLog: el("duelLog"),
+
+  // friends
+  friendIdInput: el("friendIdInput"),
+  btnAddFriend: el("btnAddFriend"),
+  friendsList: el("friendsList"),
+  duelsList: el("duelsList"),
+
+  // settings modal
+  settingsModal: el("settingsModal"),
+  settingsBackdrop: el("settingsBackdrop"),
+  settingsClose: el("settingsClose"),
+  settingsOk: el("settingsOk"),
+  ttlSettings: el("ttlSettings"),
+  lblLang: el("lblLang"),
+  langBtns: [...document.querySelectorAll(".lang")],
+
+  // titles
+  ttlPve: el("ttlPve"),
+  ttlPvp: el("ttlPvp"),
+  ttlFriends: el("ttlFriends"),
+  ttlDuels: el("ttlDuels"),
 };
 
-function setHint(msg) {
-  ui.hint.textContent = msg || "";
-}
-
-function openModal(title, body) {
-  ui.modalTitle.textContent = title || "";
-  ui.modalBody.textContent = body || "";
-  ui.modal.hidden = false;
-}
-function closeModal() { ui.modal.hidden = true; }
-
-ui.modalBackdrop.addEventListener("click", closeModal);
-ui.modalClose.addEventListener("click", closeModal);
+function setHint(msg) { ui.hint.textContent = msg || ""; }
 
 function setLoading(on) {
-  const nodes = [ui.coins, ui.level, ui.xp, ui.name, ui.id, ui.lastResult];
+  const nodes = [ui.coins, ui.level, ui.xp];
   for (const n of nodes) {
-    if (!n) continue;
     n.classList.toggle("skeleton", on);
     if (on) n.textContent = "";
   }
 }
 
-function setMakerHint(msg) {
-  ui.makerHint.textContent = msg || "";
+let ME = null;
+let currentStake = 25;
+
+function renderStaticText() {
+  ui.subtitle.textContent = t("lobby");
+  ui.lblCoins.textContent = t("coins");
+  ui.lblLevel.textContent = t("level");
+  ui.lblXp.textContent = t("xp");
+  ui.lblFriendCode.textContent = t("friendCode");
+
+  ui.tabFight.textContent = t("fight");
+  ui.tabFriends.textContent = t("friends");
+  ui.tabSlot.textContent = t("slot");
+
+  ui.ttlPve.textContent = t("pve");
+  ui.ttlPvp.textContent = t("pvp");
+  ui.ttlFriends.textContent = t("friends");
+  ui.ttlDuels.textContent = t("duels");
+
+  ui.ttlSettings.textContent = t("settings");
+  ui.lblLang.textContent = t("language");
+
+  ui.btnAddFriend.textContent = t("add");
+  ui.btnCreateDuel.textContent = t("challenge");
 }
 
-/* ---------------------------
-   AVATAR: encode/decode
-   avatar_id хранится строкой: "gen|<hex>|<sym>|<name>"
----------------------------- */
-function safeStr(s) {
-  return String(s || "").replaceAll("|", "").trim().slice(0, 18);
+function openSettings() { ui.settingsModal.hidden = false; }
+function closeSettings() { ui.settingsModal.hidden = true; }
+
+ui.btnSettings.addEventListener("click", openSettings);
+ui.settingsBackdrop.addEventListener("click", closeSettings);
+ui.settingsClose.addEventListener("click", closeSettings);
+ui.settingsOk.addEventListener("click", closeSettings);
+
+ui.langBtns.forEach(b => {
+  b.addEventListener("click", () => setLang(b.dataset.lang));
+});
+
+function switchTab(name) {
+  ui.tabs.forEach(t => t.classList.toggle("tab--active", t.dataset.tab === name));
+  ui.panels.forEach(p => p.hidden = p.dataset.panel !== name);
 }
-function encodeAvatar({ colorHex, symbol, name }) {
-  const hex = (colorHex || "#A78BFA").toUpperCase();
-  const sym = safeStr(symbol || "◻︎").slice(0, 2) || "◻︎";
-  const nm = safeStr(name || "Avatar") || "Avatar";
-  return `gen|${hex}|${sym}|${nm}`;
+ui.tabs.forEach(tbtn => tbtn.addEventListener("click", () => switchTab(tbtn.dataset.tab)));
+
+function pickEnemy() {
+  const pack = ENEMIES[LANG] || ENEMIES.ru;
+  const e = randFrom(pack);
+  ui.enemyName.textContent = e.name;
+  ui.enemySub.textContent = e.sub;
+  return e;
 }
-function decodeAvatar(avatarId) {
-  const a = String(avatarId || "");
-  if (!a.startsWith("gen|")) {
-    return { colorHex: "#A78BFA", symbol: "◻︎", name: a || "Avatar", raw: a || "a1" };
-  }
-  const [, hex, sym, nm] = a.split("|");
-  return {
-    colorHex: hex || "#A78BFA",
-    symbol: sym || "◻︎",
-    name: nm || "Avatar",
-    raw: a,
+
+function commentFightWin() {
+  const variants = {
+    ru: ["Ты был убедительнее.", "Сработало. Не спрашивай почему.", "Вот это уже разговор."],
+    en: ["Clean.", "That worked. Somehow.", "Nice one."],
+    cn: ["不错。", "可以。", "你赢了。"]
   };
+  return randFrom(variants[LANG] || variants.ru);
 }
-
-function applyAvatarToProfile(avatarId) {
-  const av = decodeAvatar(avatarId);
-  ui.avatarDot.style.background = av.colorHex;
-  ui.avatarDot.style.borderColor = "rgba(255,255,255,0.10)";
-  ui.avatarName.textContent = `${av.symbol} ${av.name}`;
-  ui.avatarId.textContent = av.raw;
-}
-
-function applyAvatarToMaker({ colorHex, symbol, name }) {
-  ui.makerDot.style.background = colorHex;
-  ui.makerSymbol.textContent = symbol;
-  if (name != null) ui.makerName.value = name;
-  if (symbol != null) ui.makerSymbolInput.value = symbol;
-  if (colorHex != null) ui.makerColor.value = colorHex;
-}
-
-/* ---------------------------
-   WHEEL: визуальный спин
----------------------------- */
-const WHEEL = [
-  { label: "+5", weight: 32 },
-  { label: "+10", weight: 22 },
-  { label: "+15", weight: 16 },
-  { label: "+20", weight: 12 },
-  { label: "+30", weight: 9 },
-  { label: "x2 XP", weight: 6 },
-  { label: "Rare", weight: 3 },
-];
-
-let wheelAngle = 0;
-let spinning = false;
-
-function buildWheel() {
-  if (!ui.wheelSegments) return;
-
-  const n = WHEEL.length;
-  const step = 360 / n;
-
-  // фон сегментов (conic-gradient)
-  const colors = WHEEL.map((_, i) =>
-    i % 2 === 0 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)"
-  );
-  ui.wheelSegments.style.background =
-    `conic-gradient(${colors.map((c, i) => `${c} ${i*step}deg ${(i+1)*step}deg`).join(",")})`;
-
-  // подписи сегментов
-  ui.wheelSegments.innerHTML = "";
-  for (let i = 0; i < n; i++) {
-    const lab = document.createElement("div");
-    lab.className = "wheel__label";
-    const a = i * step + step / 2;
-    lab.style.transform = `rotate(${a}deg) translateY(-78px) rotate(${-a}deg)`;
-    lab.textContent = WHEEL[i].label;
-    ui.wheelSegments.appendChild(lab);
-  }
-
-  // центр
-  if (!ui.wheelRing.querySelector(".wheel__center")) {
-    const c = document.createElement("div");
-    c.className = "wheel__center";
-    c.innerHTML = "<span>SPIN</span>";
-    ui.wheelRing.appendChild(c);
-  }
-}
-
-// добавим стили лейблов колёсика программно (чтобы не раздувать css)
-(function injectWheelLabelCss(){
-  const css = `
-    .wheel__label{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform-origin:center;
-      font-size:12px;
-      font-weight:650;
-      letter-spacing:-0.01em;
-      color: rgba(255,255,255,0.85);
-      text-shadow: 0 10px 18px rgba(0,0,0,0.5);
-      translate: -50% -50%;
-      pointer-events:none;
-      white-space:nowrap;
-    }
-  `;
-  const s = document.createElement("style");
-  s.textContent = css;
-  document.head.appendChild(s);
-})();
-
-function setWheel(angleDeg) {
-  wheelAngle = angleDeg;
-  ui.wheelSegments.style.transform = `rotate(${wheelAngle}deg)`;
-}
-
-function pickWheelIndex() {
-  // просто фронтовый выбор для анимации (результат всё равно будет с сервера)
-  const sum = WHEEL.reduce((a, x) => a + x.weight, 0);
-  let r = Math.random() * sum;
-  for (let i = 0; i < WHEEL.length; i++) {
-    r -= WHEEL[i].weight;
-    if (r <= 0) return i;
-  }
-  return 0;
-}
-
-/* ---------------------------
-   PROFILE RENDER
----------------------------- */
-let currentAvatarId = "a1";
-
-function renderProfile(p) {
-  setLoading(false);
-
-  ui.coins.textContent = String(p.coins ?? 0);
-  ui.level.textContent = String(p.level ?? 1);
-  ui.xp.textContent = String(p.xp ?? 0);
-
-  ui.name.textContent = p.username || p.first_name || "player";
-  ui.id.textContent = String(p.user_id || "");
-
-  currentAvatarId = p.avatar_id || currentAvatarId || "a1";
-  applyAvatarToProfile(currentAvatarId);
-
-  ui.lastResult.classList.remove("skeleton");
+function commentFightLose() {
+  const variants = {
+    ru: ["Не прокатило.", "Ладно. Живём.", "Ну блядь. Бывает."],
+    en: ["Unlucky.", "Didn’t work.", "Run it back."],
+    cn: ["没关系。", "再来一次。", "差一点。"]
+  };
+  return randFrom(variants[LANG] || variants.ru);
 }
 
 async function loadMe() {
   setLoading(true);
-  setHint("Загрузка…");
+  setHint("…");
   const me = await api("/api/me");
-  renderProfile(me);
+  ME = me;
+  ui.coins.textContent = String(me.coins ?? 0);
+  ui.level.textContent = String(me.level ?? 1);
+  ui.xp.textContent = String(me.xp ?? 0);
+  ui.friendCode.textContent = String(me.user_id || "");
+  setLoading(false);
   setHint("");
 }
 
-/* ---------------------------
-   SPIN: анимация + серверный результат
----------------------------- */
-async function spin() {
-  if (spinning) return;
-  spinning = true;
+ui.btnRefresh.addEventListener("click", () => loadMe().catch(e => setHint(e.message)));
 
-  ui.btnSpin.disabled = true;
-  ui.btnAvatar.disabled = true;
-  setHint("Крутка…");
-
-  // анимация (фронт)
-  const n = WHEEL.length;
-  const step = 360 / n;
-  const idx = pickWheelIndex();
-
-  // хотим, чтобы указатель (сверху) попал в центр сегмента idx
-  // pointer at 0deg (top). conic starts at 0deg to the right by default, но мы уже визуально ок.
-  // поэтому просто "докрутим" на несколько оборотов + нужный угол.
-  const targetAngle = (360 * 4) + (idx * step) + (step / 2);
-  const from = wheelAngle % 360;
-  const to = from + targetAngle;
-
-  ui.wheelSegments.style.transition = "transform 1200ms cubic-bezier(.10,.72,.10,1)";
-  setWheel(to);
-
-  // параллельно запрос на сервер
-  let serverResult = null;
+ui.btnCopyCode.addEventListener("click", async () => {
+  const code = ui.friendCode.textContent.trim();
   try {
-    serverResult = await api("/api/spin", {});
-  } catch (e) {
-    // если сервер упал — всё равно остановим анимацию и покажем ошибку
-    setHint(e.message || "Ошибка");
+    await navigator.clipboard.writeText(code);
+    setHint(LANG === "ru" ? "Скопировано." : LANG === "cn" ? "已复制。" : "Copied.");
+    setTimeout(() => setHint(""), 800);
+  } catch {
+    setHint("Copy failed");
+  }
+});
+
+/* ----- PvE fight (local sim, rewards via /api/spin later) ----- */
+ui.stakes.forEach(b => {
+  b.addEventListener("click", () => {
+    currentStake = Number(b.dataset.stake);
+    ui.stakes.forEach(x => x.classList.toggle("btn--primary", x === b));
+    ui.stakes.forEach(x => x.classList.toggle("btn--secondary", x !== b));
+  });
+});
+// default
+ui.stakes[1].click();
+
+ui.btnPveFight.addEventListener("click", async () => {
+  if (!ME) return;
+
+  const coins = Number(ME.coins ?? 0);
+  if (coins < currentStake) {
+    ui.fightLog.textContent = LANG === "ru" ? "Недостаточно монет." : LANG === "cn" ? "硬币不够。" : "Not enough coins.";
+    return;
   }
 
-  // после анимации
-  setTimeout(() => {
-    ui.wheelSegments.style.transition = "transform 900ms cubic-bezier(.12,.72,.11,1)";
+  // простая симуляция (MVP)
+  const winChance = 0.48 + Math.min(0.2, (ME.level ?? 1) * 0.01);
+  const won = Math.random() < winChance;
 
-    if (serverResult) {
-      ui.lastResult.textContent = serverResult.text || serverResult.result_text || "Готово";
-      if (serverResult.profile) renderProfile(serverResult.profile);
-      setHint("");
+  const delta = won ? currentStake : -Math.floor(currentStake * 0.6);
+  ME.coins = coins + delta;
+
+  ui.coins.textContent = String(ME.coins);
+  ui.fightLog.textContent = won
+    ? `${commentFightWin()}  +${currentStake}`
+    : `${commentFightLose()}  ${delta}`;
+
+  // сохраняем coins через /api/spin не трогаем — это позже сделаем отдельным endpoint.
+});
+
+/* ----- Friends API ----- */
+async function loadFriends() {
+  const r = await api("/api/friends");
+  const ids = r.friends || [];
+  ui.friendsList.innerHTML = "";
+
+  if (ids.length === 0) {
+    ui.friendsList.innerHTML = `<div class="result">${LANG === "ru" ? "Пока пусто. Добавь друга по friend id." : LANG === "cn" ? "还没有好友。" : "No friends yet."}</div>`;
+    return;
+  }
+
+  for (const id of ids) {
+    const row = document.createElement("div");
+    row.className = "item";
+    row.innerHTML = `
+      <div class="item__main">
+        <div class="item__title">${id}</div>
+        <div class="item__sub">${LANG === "ru" ? "friend" : LANG === "cn" ? "好友" : "friend"}</div>
+      </div>
+      <button class="mini-btn duelBtn">${t("challenge")}</button>
+    `;
+    row.querySelector(".duelBtn").addEventListener("click", () => {
+      ui.pvpToId.value = String(id);
+      switchTab("fight");
+      ui.duelLog.textContent = "";
+    });
+    ui.friendsList.appendChild(row);
+  }
+}
+
+ui.btnAddFriend.addEventListener("click", async () => {
+  const friendId = ui.friendIdInput.value.trim();
+  if (!friendId) return;
+
+  ui.btnAddFriend.disabled = true;
+  setHint(LANG === "ru" ? "Добавляю…" : LANG === "cn" ? "添加中…" : "Adding…");
+  try {
+    await api("/api/friends", { friend_id: friendId });
+    ui.friendIdInput.value = "";
+    await loadFriends();
+    setHint(LANG === "ru" ? "Готово." : LANG === "cn" ? "完成。" : "Done.");
+    setTimeout(() => setHint(""), 900);
+  } catch (e) {
+    setHint(e.message || "Error");
+  } finally {
+    ui.btnAddFriend.disabled = false;
+  }
+});
+
+/* ----- Duels ----- */
+async function loadDuels() {
+  const r = await api("/api/duels");
+  const duels = r.duels || [];
+  ui.duelsList.innerHTML = "";
+
+  if (duels.length === 0) {
+    ui.duelsList.innerHTML = `<div class="result">${LANG === "ru" ? "Дуэлей пока нет." : LANG === "cn" ? "还没有决斗。" : "No duels yet."}</div>`;
+    return;
+  }
+
+  for (const d of duels) {
+    const status = d.resolved
+      ? (d.winner === (ME?.user_id) ? "WIN" : "LOSE")
+      : "PENDING";
+
+    const row = document.createElement("div");
+    row.className = "item";
+
+    const title = `${d.from} → ${d.to}`;
+    const sub = `${status} • stake ${d.stake} • ${new Date(d.created_ts).toLocaleString()}`;
+
+    row.innerHTML = `
+      <div class="item__main">
+        <div class="item__title">${title}</div>
+        <div class="item__sub">${sub}</div>
+      </div>
+      ${d.resolved ? "" : `<button class="mini-btn resolveBtn">${t("accept")}</button>`}
+    `;
+
+    const btn = row.querySelector(".resolveBtn");
+    if (btn) {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          const rr = await api("/api/duel_resolve", { duel_id: d.duel_id });
+          ui.duelLog.textContent = `Resolved. Winner: ${rr.winner_id}`;
+          await loadDuels();
+          await loadMe();
+        } catch (e) {
+          ui.duelLog.textContent = e.message || "Error";
+        } finally {
+          btn.disabled = false;
+        }
+      });
     }
 
-    ui.btnSpin.disabled = false;
-    ui.btnAvatar.disabled = false;
-    spinning = false;
-  }, 1250);
+    ui.duelsList.appendChild(row);
+  }
 }
 
-/* ---------------------------
-   AVATAR MAKER MODAL
----------------------------- */
-function openAvatarMaker() {
-  ui.avatarModal.hidden = false;
+ui.btnCreateDuel.addEventListener("click", async () => {
+  const toId = ui.pvpToId.value.trim();
+  const stake = Number(ui.pvpStake.value);
 
-  // подставим текущий аватар в конструктор
-  const av = decodeAvatar(currentAvatarId);
-  applyAvatarToMaker(av);
-  setMakerHint("");
-}
-function closeAvatarMaker() {
-  ui.avatarModal.hidden = true;
-  setMakerHint("");
-}
+  if (!toId) return;
 
-ui.avatarBackdrop.addEventListener("click", closeAvatarMaker);
-ui.avatarClose.addEventListener("click", closeAvatarMaker);
-ui.avatarCancel.addEventListener("click", closeAvatarMaker);
-
-function randomHex() {
-  const h = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0");
-  return ("#" + h).toUpperCase();
-}
-function randomSymbol() {
-  const symbols = ["◻︎","◼︎","▣","⬚","◦","▪︎","◇","◆","△","▽","○","●"];
-  return symbols[Math.floor(Math.random() * symbols.length)];
-}
-function randomName() {
-  const names = ["Noir","Glass","Zen","Bold","Classic","Neo","Lumen","Pulse","Nova","Astra"];
-  return names[Math.floor(Math.random() * names.length)];
-}
-
-function refreshMakerPreview() {
-  const colorHex = ui.makerColor.value || "#A78BFA";
-  const symbol = (ui.makerSymbolInput.value || "◻︎").slice(0, 2);
-  ui.makerDot.style.background = colorHex;
-  ui.makerSymbol.textContent = symbol || "◻︎";
-}
-
-ui.makerColor.addEventListener("input", refreshMakerPreview);
-ui.makerSymbolInput.addEventListener("input", refreshMakerPreview);
-
-ui.makerRandom.addEventListener("click", () => {
-  applyAvatarToMaker({ colorHex: randomHex(), symbol: randomSymbol(), name: randomName() });
-  refreshMakerPreview();
-});
-
-ui.makerSave.addEventListener("click", async () => {
-  const colorHex = ui.makerColor.value || "#A78BFA";
-  const symbol = (ui.makerSymbolInput.value || "◻︎").slice(0, 2) || "◻︎";
-  const name = (ui.makerName.value || "Avatar").trim() || "Avatar";
-
-  const avatar_id = encodeAvatar({ colorHex, symbol, name });
-
-  ui.makerSave.disabled = true;
-  ui.makerRandom.disabled = true;
-  setMakerHint("Сохранение…");
+  ui.btnCreateDuel.disabled = true;
+  ui.duelLog.textContent = LANG === "ru" ? "Создаю вызов…" : LANG === "cn" ? "创建挑战…" : "Creating…";
 
   try {
-    const r = await api("/api/avatar", { avatar_id });
-    if (r.profile) renderProfile(r.profile);
-    currentAvatarId = avatar_id;
-    applyAvatarToProfile(currentAvatarId);
-
-    setMakerHint("Сохранено");
-    setTimeout(() => closeAvatarMaker(), 250);
+    const r = await api("/api/duel_create", { to_id: Number(toId), stake });
+    ui.duelLog.textContent = `${LANG === "ru" ? "Вызов создан" : LANG === "cn" ? "挑战已创建" : "Created"}: ${r.duel.duel_id}`;
+    await loadDuels();
   } catch (e) {
-    setMakerHint(e.message || "Ошибка");
+    ui.duelLog.textContent = e.message || "Error";
   } finally {
-    ui.makerSave.disabled = false;
-    ui.makerRandom.disabled = false;
+    ui.btnCreateDuel.disabled = false;
   }
 });
 
-/* ---------------------------
-   UI bindings
----------------------------- */
-ui.btnSpin.addEventListener("click", spin);
-ui.btnAvatar.addEventListener("click", openAvatarMaker);
-ui.btnRefresh.addEventListener("click", () => loadMe().catch(err => setHint(err.message)));
-
-ui.btnRules.addEventListener("click", () =>
-  openModal("Правила", "Игра использует внутриигровые очки. Реальные деньги не участвуют.")
-);
-ui.btnSupport.addEventListener("click", () =>
-  openModal("Поддержка", "Если что-то не работает, откройте игру заново и нажмите «Обновить».")
-);
-
-/* ---------------------------
-   Boot
----------------------------- */
+/* ----- Boot ----- */
 (async function boot() {
   initTelegramUi();
-  buildWheel();
-
-  // стартовое положение
-  setWheel(0);
+  renderStaticText();
 
   if (!initData()) {
-    ui.subtitle.textContent = "Открывайте через Telegram";
-    setHint("Запустите мини-приложение из бота.");
+    ui.subtitle.textContent = "Open in Telegram";
+    setHint("Запусти мини-приложение из бота.");
     setLoading(false);
     return;
   }
 
   try {
+    pickEnemy();
     await loadMe();
-    refreshMakerPreview();
+    await loadFriends();
+    await loadDuels();
   } catch (e) {
+    setHint(e.message || "Ошибка");
     setLoading(false);
-    setHint(e.message || "Ошибка загрузки");
   }
 })();
