@@ -736,6 +736,8 @@ setAuto(autoMode);
 (async function boot() {
   initTelegramUi();
   renderStaticText();
+  renderSpicy();
+
 
   if (!initData()) {
     ui.subtitle.textContent = "Open in Telegram";
@@ -757,13 +759,18 @@ setAuto(autoMode);
   }
 })();
 function renderSpicy() {
+  if (!ui.btnSpicy) return;
   ui.btnSpicy.textContent = spicy ? "On" : "Off";
   ui.btnSpicy.classList.toggle("btn--primary", spicy);
   ui.btnSpicy.classList.toggle("btn--secondary", !spicy);
 }
-ui.btnSpicy.addEventListener("click", () => {
-  spicy = !spicy;
-  localStorage.setItem("spicy", spicy ? "1" : "0");
-  renderSpicy();
-});
+
+if (ui.btnSpicy) {
+  ui.btnSpicy.addEventListener("click", () => {
+    spicy = !spicy;
+    localStorage.setItem("spicy", spicy ? "1" : "0");
+    renderSpicy();
+  });
+}
+
 
