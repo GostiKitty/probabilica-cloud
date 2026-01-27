@@ -125,10 +125,10 @@ export async function onRequest({ request, env }) {
       meter_add: addMeter,
       meter_triggered: meterTriggered,
       scatter_triggered: scatterTriggered,
-      bonus_until: p.bonus_until || 0
+      bonus_until: p.bonus_until || 0,
       drop: appliedDrop,
-
     },
-    profile: p
+    profile: p,
   });
+
 }
