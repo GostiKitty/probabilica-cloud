@@ -16,15 +16,28 @@ export async function getOrCreatePlayer(env, userId, username) {
     p = {
       user_id: userId,
       username: username || `user${userId}`,
-      avatar_id: "a1",
+
+      // RPG/slot state
+      avatar_id: "char|str=1|def=1|int=1|luck=1",
       coins: 150,
       level: 1,
       xp: 0,
+
+      // slot meta
+      free_spins: 0,
+      meter: 0,           // 0..10
+      bonus_until: 0,     // timestamp ms, бонус-режим (косметика/чуть шанс)
       last_spin_ts: 0
     };
     await env.PROB_KV.put(key, JSON.stringify(p));
     return p;
   }
+
+  // миграции/дефолты (если у старых профилей полей нет)
+  if (p.free_spins == null) p.free_spins = 0;
+  if (p.meter == null) p.meter = 0;
+  if (p.bonus_until == null) p.bonus_until = 0;
+  if (p.last_spin_ts == null) p.last_spin_ts = 0;
 
   if (username && p.username !== username) {
     p.username = username;
@@ -55,7 +68,6 @@ export async function addFriend(env, userId, friendId) {
     await env.PROB_KV.put(friendsKey(userId), JSON.stringify(list));
   }
 
-  // добавляем взаимно (чтобы “дружиться с кем угодно” было реально дружбой)
   const list2 = await getFriends(env, friendId);
   if (!list2.includes(userId)) {
     list2.push(userId);
@@ -102,7 +114,6 @@ export async function getDuel(env, duelId) {
 }
 
 export async function listDuelsForUser(env, userId, limit = 30) {
-  // KV листинг по префиксу есть, но может быть дорогим — для MVP ок.
   const it = await env.PROB_KV.list({ prefix: "duel:" });
   const duels = [];
 

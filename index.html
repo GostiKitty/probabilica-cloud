@@ -107,11 +107,35 @@
 
         <!-- SLOT (пока заглушка, чтобы ты видела вкладку) -->
         <section class="card" data-panel="slot" hidden>
-          <div class="card__title">Slot</div>
-          <div class="result">
-            С основа.
+          <div class="slot-head">
+            <div class="card__title" id="ttlSlot">Slot</div>
+            <div class="slot-meta">
+              <div class="meta-pill"><span id="lblFree">Free</span>: <span class="mono" id="freeSpins">0</span></div>
+              <div class="meta-pill"><span id="lblMeter">Meter</span>: <span class="mono" id="meter">0</span>/10</div>
+            </div>
           </div>
+
+          <div class="slot-machine" id="slotMachine">
+            <div class="reel" data-reel="0"><div class="reel__strip" id="reel0"></div></div>
+            <div class="reel" data-reel="1"><div class="reel__strip" id="reel1"></div></div>
+            <div class="reel" data-reel="2"><div class="reel__strip" id="reel2"></div></div>
+
+            <div class="payline"></div>
+            <div class="slot-glow" id="slotGlow"></div>
+          </div>
+
+          <div class="row2" style="grid-template-columns: 1fr 1fr; margin-top:12px">
+            <button class="btn btn--primary" id="btnSlotSpin">Spin</button>
+            <button class="btn btn--secondary" id="btnAuto">Auto</button>
+          </div>
+
+          <div class="result" id="slotComment"></div>
+
+          <div class="divider"></div>
+          <div class="card__title" id="ttlHistory">History</div>
+          <div class="list" id="slotHistory"></div>
         </section>
+
       </main>
     </div>
 

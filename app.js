@@ -55,6 +55,12 @@ const I18N = {
     language: "Язык",
     challenge: "Вызвать",
     accept: "Принять",
+    slotSpin: "Крутить",
+    slotAuto: "Авто",
+    free: "Фриспины",
+    meter: "Шкала",
+    history: "История",
+
   },
   en: {
     lobby: "Lobby",
@@ -74,6 +80,12 @@ const I18N = {
     language: "Language",
     challenge: "Challenge",
     accept: "Accept",
+    slotSpin: "Spin",
+    slotAuto: "Auto",
+    free: "Free",
+    meter: "Meter",
+    history: "History",
+
   },
   cn: {
     lobby: "大厅",
@@ -93,6 +105,12 @@ const I18N = {
     language: "语言",
     challenge: "挑战",
     accept: "接受",
+    slotSpin: "旋转",
+    slotAuto: "自动",
+    free: "免费",
+    meter: "进度",
+    history: "记录",
+
   }
 };
 let LANG = localStorage.getItem("lang") || "ru";
@@ -198,6 +216,22 @@ const ui = {
   ttlPvp: el("ttlPvp"),
   ttlFriends: el("ttlFriends"),
   ttlDuels: el("ttlDuels"),
+    // slot
+  ttlSlot: el("ttlSlot"),
+  lblFree: el("lblFree"),
+  lblMeter: el("lblMeter"),
+  freeSpins: el("freeSpins"),
+  meter: el("meter"),
+  btnSlotSpin: el("btnSlotSpin"),
+  btnAuto: el("btnAuto"),
+  reel0: el("reel0"),
+  reel1: el("reel1"),
+  reel2: el("reel2"),
+  slotComment: el("slotComment"),
+  slotHistory: el("slotHistory"),
+  slotGlow: el("slotGlow"),
+  ttlHistory: el("ttlHistory"),
+
 };
 
 function setHint(msg) { ui.hint.textContent = msg || ""; }
@@ -234,6 +268,14 @@ function renderStaticText() {
 
   ui.btnAddFriend.textContent = t("add");
   ui.btnCreateDuel.textContent = t("challenge");
+  
+  ui.ttlSlot.textContent = t("slot");
+  ui.lblFree.textContent = t("free");
+  ui.lblMeter.textContent = t("meter");
+  ui.btnSlotSpin.textContent = t("slotSpin");
+  ui.btnAuto.textContent = t("slotAuto");
+  ui.ttlHistory.textContent = t("history");
+
 }
 
 function openSettings() { ui.settingsModal.hidden = false; }
@@ -284,6 +326,7 @@ async function loadMe() {
   setHint("…");
   const me = await api("/api/me");
   ME = me;
+  setSlotMetaFromProfile(ME);
   ui.coins.textContent = String(me.coins ?? 0);
   ui.level.textContent = String(me.level ?? 1);
   ui.xp.textContent = String(me.xp ?? 0);
@@ -459,6 +502,213 @@ ui.btnCreateDuel.addEventListener("click", async () => {
     ui.btnCreateDuel.disabled = false;
   }
 });
+/* =========================
+   SLOT FRONTEND
+========================= */
+
+const SYMBOL_LABEL = {
+  BAR: "BAR",
+  BELL: "BELL",
+  SEVEN: "SEVEN",
+  CHERRY: "CHERRY",
+  STAR: "STAR",
+  COIN: "COIN",
+  SCATTER: "SCATTER",
+};
+
+let autoMode = localStorage.getItem("auto") === "1";
+let spicy = localStorage.getItem("spicy") !== "0"; // по умолчанию да
+function setAuto(on) {
+  autoMode = !!on;
+  localStorage.setItem("auto", autoMode ? "1" : "0");
+  ui.btnAuto.classList.toggle("btn--primary", autoMode);
+  ui.btnAuto.classList.toggle("btn--secondary", !autoMode);
+}
+
+function setSlotMetaFromProfile(p) {
+  ui.freeSpins.textContent = String(p.free_spins ?? 0);
+  ui.meter.textContent = String(p.meter ?? 0);
+}
+
+function haptic(type) {
+  try {
+    tg?.HapticFeedback?.impactOccurred?.(type);
+  } catch {}
+}
+
+function slotComment(kind, spin) {
+  const RU = {
+    lose: ["Ладно. Живём.", "Не сегодня.", "Система тебя увидела."],
+    near: spicy
+      ? ["Ну блядь, почти.", "Вот обидно-то.", "Так близко, что больно."]
+      : ["Почти.", "Обидно.", "Рядом было."],
+    win: ["Не густо, но приятно.", "Окей, идём дальше.", "Нормальный заход."],
+    big: ["Вот это уже разговор.", "Ты сегодня в форме.", "Красиво. Без вопросов."],
+    scatter: ["Ладно. Держи фриспины.", "Система моргнула.", "О, бонус. Пошло."],
+    meter: ["Терпение окупилось.", "Стабильно. Держи free.", "Ну всё, поехали."],
+  };
+  const EN = {
+    lose: ["Unlucky.", "Not today.", "The system saw you."],
+    near: ["So close.", "That hurt.", "Almost."],
+    win: ["Decent.", "Keep going.", "Nice."],
+    big: ["Clean.", "Big hit.", "That’s a moment."],
+    scatter: ["Bonus time.", "Free spins.", "Let’s go."],
+    meter: ["Meter popped.", "Free spins.", "Good."],
+  };
+  const CN = {
+    lose: ["没关系。", "不急。", "今天不行。"],
+    near: ["差一点。", "就差一点。", "太近了。"],
+    win: ["还行。", "不错。", "可以。"],
+    big: ["很猛。", "漂亮。", "大赢。"],
+    scatter: ["进奖励。", "免费旋转。", "开始了。"],
+    meter: ["进度满了。", "给你免费。", "走起。"],
+  };
+
+  const pack = LANG === "cn" ? CN : LANG === "en" ? EN : RU;
+  const arr = pack[kind] || pack.lose;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// render reels (strip with 3 visible rows; we animate by translating a strip with many rows)
+function buildReelStrip(elStrip) {
+  const order = ["BAR","BELL","SEVEN","CHERRY","STAR","COIN","SCATTER"];
+  const rows = [];
+  for (let i = 0; i < 18; i++) {
+    const s = order[i % order.length];
+    rows.push(s);
+  }
+  elStrip.innerHTML = rows.map(s => `<div class="sym sym--${s}">${SYMBOL_LABEL[s]}</div>`).join("");
+  return rows;
+}
+
+const reelRows0 = buildReelStrip(ui.reel0);
+const reelRows1 = buildReelStrip(ui.reel1);
+const reelRows2 = buildReelStrip(ui.reel2);
+
+function setReelToSymbol(elStrip, rows, symbol, extraTurns = 0) {
+  // each row = 50px, center row index we want = 1 (middle visible)
+  // We'll position so that "symbol" lands on row index k such that it's in center:
+  const rowH = 50;
+  const idxs = [];
+  for (let i = 0; i < rows.length; i++) if (rows[i] === symbol) idxs.push(i);
+  const pick = idxs[Math.floor(Math.random() * idxs.length)];
+  const centerRow = 1; // visible middle
+  // translateY negative moves strip up: we want row pick to align to centerRow
+  const base = (pick - centerRow) * rowH;
+  const turns = extraTurns * rows.length * rowH;
+  const y = -(base + turns);
+  elStrip.style.transform = `translateY(${y}px)`;
+}
+
+function pushHistory(spin) {
+  const row = document.createElement("div");
+  row.className = "item";
+  const sym = spin.symbols.join(" · ");
+  const badge = spin.kind.toUpperCase();
+  row.innerHTML = `
+    <div class="item__main">
+      <div class="item__title">${sym}</div>
+      <div class="item__sub">+${spin.winCoins} coins • +${spin.winXp} xp</div>
+    </div>
+    <div class="badge2">${badge}</div>
+  `;
+  ui.slotHistory.prepend(row);
+  // limit 6
+  while (ui.slotHistory.children.length > 6) ui.slotHistory.lastChild.remove();
+}
+
+function setGlow(kind, bonusUntil) {
+  ui.slotGlow.classList.remove("is-win","is-big","is-bonus");
+  if (kind === "win" || kind === "near") ui.slotGlow.classList.add("is-win");
+  if (kind === "big") ui.slotGlow.classList.add("is-big");
+  if (kind === "scatter") ui.slotGlow.classList.add("is-bonus");
+  if (bonusUntil && bonusUntil > Date.now()) ui.slotGlow.classList.add("is-bonus");
+}
+
+let spinningSlot = false;
+
+async function slotSpinOnce() {
+  if (spinningSlot) return;
+  spinningSlot = true;
+
+  ui.btnSlotSpin.disabled = true;
+  ui.btnAuto.disabled = true;
+
+  // request server spin
+  let resp;
+  try {
+    resp = await api("/api/spin", {});
+  } catch (e) {
+    ui.slotComment.textContent = e.message || "Error";
+    ui.btnSlotSpin.disabled = false;
+    ui.btnAuto.disabled = false;
+    spinningSlot = false;
+    return;
+  }
+
+  const spin = resp.spin;
+  const prof = resp.profile;
+  if (prof) {
+    ME = prof;
+    ui.coins.textContent = String(ME.coins ?? 0);
+    ui.level.textContent = String(ME.level ?? 1);
+    ui.xp.textContent = String(ME.xp ?? 0);
+    ui.friendCode.textContent = String(ME.user_id || "");
+    setSlotMetaFromProfile(ME);
+  }
+
+  // animate reels stop one by one
+  haptic("light");
+
+  ui.reel0.style.transition = "transform 900ms cubic-bezier(.12,.72,.11,1)";
+  ui.reel1.style.transition = "transform 1050ms cubic-bezier(.12,.72,.11,1)";
+  ui.reel2.style.transition = "transform 1200ms cubic-bezier(.12,.72,.11,1)";
+
+  // set targets with extraTurns to look like spin
+  setReelToSymbol(ui.reel0, reelRows0, spin.symbols[0], 3);
+  setReelToSymbol(ui.reel1, reelRows1, spin.symbols[1], 4);
+  setReelToSymbol(ui.reel2, reelRows2, spin.symbols[2], 5);
+
+  // haptic per stop
+  setTimeout(() => haptic("light"), 900);
+  setTimeout(() => haptic("light"), 1050);
+  setTimeout(() => haptic("medium"), 1200);
+
+  setTimeout(() => {
+    // comment logic
+    let kind = spin.kind;
+    // if meter triggered => show meter comment
+    if (spin.meter_triggered) {
+      ui.slotComment.textContent = slotComment("meter", spin);
+    } else {
+      ui.slotComment.textContent = slotComment(kind, spin);
+    }
+
+    setGlow(kind, spin.bonus_until);
+    pushHistory(spin);
+
+    ui.btnSlotSpin.disabled = false;
+    ui.btnAuto.disabled = false;
+    spinningSlot = false;
+
+    // AUTO only for free spins, and only if you have them
+    const free = Number(ME?.free_spins ?? 0);
+    if (autoMode && free > 0) {
+      // slight delay
+      setTimeout(() => slotSpinOnce(), 450);
+    }
+  }, 1250);
+}
+
+ui.btnSlotSpin.addEventListener("click", () => slotSpinOnce());
+ui.btnAuto.addEventListener("click", () => {
+  setAuto(!autoMode);
+  // if turned on and has free spins, start immediately
+  const free = Number(ME?.free_spins ?? 0);
+  if (autoMode && free > 0 && !spinningSlot) slotSpinOnce();
+});
+setAuto(autoMode);
+
 
 /* ----- Boot ----- */
 (async function boot() {
@@ -475,6 +725,8 @@ ui.btnCreateDuel.addEventListener("click", async () => {
   try {
     pickEnemy();
     await loadMe();
+    setSlotMetaFromProfile(ME);
+
     await loadFriends();
     await loadDuels();
   } catch (e) {

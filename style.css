@@ -254,3 +254,113 @@ body{
   animation: shimmer 1.2s infinite;
 }
 @keyframes shimmer { to { transform: translateX(100%); } }
+/* ---------- SLOT ---------- */
+.slot-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.slot-meta{ display:flex; gap:8px; align-items:center; }
+.meta-pill{
+  border:1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.82);
+}
+
+.slot-machine{
+  position:relative;
+  margin-top:10px;
+  border-radius: 22px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:
+    radial-gradient(900px 260px at 50% 0%, rgba(255,255,255,0.10), transparent),
+    rgba(255,255,255,0.03);
+  padding: 14px;
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:10px;
+  overflow:hidden;
+}
+
+.reel{
+  height: 150px;
+  border-radius: 18px;
+  border:1px solid rgba(255,255,255,0.10);
+  background: rgba(10,10,10,0.55);
+  overflow:hidden;
+  position:relative;
+}
+.reel::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.65), transparent 35%, transparent 65%, rgba(0,0,0,0.65));
+  pointer-events:none;
+}
+.reel__strip{
+  position:absolute;
+  left:0; right:0;
+  top:0;
+  transform: translateY(0px);
+  transition: transform 900ms cubic-bezier(.12,.72,.11,1);
+}
+.sym{
+  height:50px;
+  display:grid;
+  place-items:center;
+  font-weight:800;
+  letter-spacing:0.08em;
+  color: rgba(255,255,255,0.90);
+  text-shadow: 0 12px 26px rgba(0,0,0,0.55);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 14px;
+}
+.sym--SCATTER{ letter-spacing:0.18em; opacity:0.95; }
+.sym--SEVEN{ opacity:0.95; }
+.sym--STAR{ opacity:0.92; }
+
+.payline{
+  position:absolute;
+  left:12px; right:12px;
+  top: 50%;
+  height:2px;
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.10);
+}
+
+.slot-glow{
+  position:absolute;
+  inset:-40px;
+  background: radial-gradient(500px 240px at 50% 50%, rgba(255,255,255,0.10), transparent 60%);
+  opacity:0;
+  transition: opacity .18s ease;
+  pointer-events:none;
+}
+.slot-glow.is-win{ opacity:1; }
+.slot-glow.is-big{
+  opacity:1;
+  background: radial-gradient(540px 260px at 50% 50%, rgba(255,255,255,0.18), transparent 60%);
+}
+.slot-glow.is-bonus{
+  opacity:1;
+  background: radial-gradient(560px 280px at 50% 50%, rgba(255,255,255,0.14), transparent 60%);
+}
+
+.history-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.badge2{
+  border:1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
+}
