@@ -7,6 +7,7 @@ function initTelegramUi() {
     tg.expand();
     tg.setHeaderColor?.("#0A0A0A");
     tg.setBackgroundColor?.("#0A0A0A");
+    tg.enableClosingConfirmation?.();
   } catch {}
 }
 
@@ -39,31 +40,26 @@ async function api(path, body) {
 /* -------- i18n -------- */
 const I18N = {
   ru: {
-    lobby: "Лобби",
     coins: "Монеты",
     level: "Уровень",
     xp: "Опыт",
     friendCode: "Friend code",
     copy: "Скопировать",
-    fight: "Бой",
-    friends: "Друзья",
-    slot: "Слот",
+    fight: "Fight",
+    friends: "Friends",
+    slot: "Slot",
     pve: "PvE",
     pvp: "PvP",
-    add: "Добавить",
-    duels: "Дуэли",
-    settings: "Настройки",
-    language: "Язык",
-    challenge: "Вызвать",
-    accept: "Принять",
-    slotSpin: "Крутить",
-    slotAuto: "Авто",
-    free: "Фриспины",
-    meter: "Шкала",
-    history: "История",
+    add: "Add",
+    challenge: "Challenge",
+    accept: "Accept",
+    slotSpin: "Spin",
+    slotAuto: "Auto",
+    free: "Free",
+    meter: "Meter",
+    history: "History",
   },
   en: {
-    lobby: "Lobby",
     coins: "Coins",
     level: "Level",
     xp: "XP",
@@ -75,9 +71,6 @@ const I18N = {
     pve: "PvE",
     pvp: "PvP",
     add: "Add",
-    duels: "Duels",
-    settings: "Settings",
-    language: "Language",
     challenge: "Challenge",
     accept: "Accept",
     slotSpin: "Spin",
@@ -87,7 +80,6 @@ const I18N = {
     history: "History",
   },
   cn: {
-    lobby: "大厅",
     coins: "金币",
     level: "等级",
     xp: "经验",
@@ -99,9 +91,6 @@ const I18N = {
     pve: "PvE",
     pvp: "PvP",
     add: "添加",
-    duels: "对决",
-    settings: "设置",
-    language: "语言",
     challenge: "挑战",
     accept: "接受",
     slotSpin: "旋转",
@@ -116,10 +105,7 @@ let LANG = localStorage.getItem("lang") || "ru";
 if (!I18N[LANG]) LANG = "ru";
 
 let spicy = localStorage.getItem("spicy") === "1";
-
-function t(k) {
-  return I18N[LANG][k] || I18N.ru[k] || k;
-}
+function t(k) { return I18N[LANG][k] || I18N.ru[k] || k; }
 
 /* -------- UI refs -------- */
 const ui = {
@@ -138,7 +124,6 @@ const ui = {
   tabFight: document.getElementById("tabFight"),
   tabFriends: document.getElementById("tabFriends"),
   tabSlot: document.getElementById("tabSlot"),
-
   panels: [...document.querySelectorAll("[data-panel]")],
 
   ttlPve: document.getElementById("ttlPve"),
@@ -187,14 +172,10 @@ const ui = {
   dropSub: document.getElementById("dropSub"),
 };
 
-function setHint(text) {
-  ui.hint.textContent = text || "";
-}
+function setHint(text) { ui.hint.textContent = text || ""; }
 
 function haptic(kind = "light") {
-  try {
-    tg?.HapticFeedback?.impactOccurred?.(kind);
-  } catch {}
+  try { tg?.HapticFeedback?.impactOccurred?.(kind); } catch {}
 }
 
 /* -------- Tabs -------- */
@@ -202,16 +183,14 @@ function showTab(tab) {
   for (const b of [ui.tabFight, ui.tabFriends, ui.tabSlot]) {
     b.classList.toggle("is-active", b.dataset.tab === tab);
   }
-  for (const p of ui.panels) {
-    p.hidden = p.dataset.panel !== tab;
-  }
+  for (const p of ui.panels) p.hidden = p.dataset.panel !== tab;
   setHint("");
 }
 ui.tabFight.addEventListener("click", () => showTab("fight"));
 ui.tabFriends.addEventListener("click", () => showTab("friends"));
 ui.tabSlot.addEventListener("click", () => showTab("slot"));
 
-/* -------- Static text render -------- */
+/* -------- Static text -------- */
 function renderStaticText() {
   ui.lblCoins.textContent = t("coins");
   ui.lblLevel.textContent = t("level");
@@ -238,7 +217,6 @@ function renderStaticText() {
 
   ui.btnLang.textContent = LANG.toUpperCase();
 }
-
 ui.btnLang.addEventListener("click", () => {
   LANG = LANG === "ru" ? "en" : LANG === "en" ? "cn" : "ru";
   localStorage.setItem("lang", LANG);
@@ -255,13 +233,12 @@ ui.btnCopy.addEventListener("click", async () => {
 
 /* -------- Spicy toggle -------- */
 function renderSpicy() {
-  if (!ui.btnSpicy) return;
   ui.btnSpicy.textContent = spicy ? "On" : "Off";
   ui.btnSpicy.classList.toggle("btn--primary", spicy);
   ui.btnSpicy.classList.toggle("btn--secondary", !spicy);
 }
 renderSpicy();
-ui.btnSpicy?.addEventListener("click", () => {
+ui.btnSpicy.addEventListener("click", () => {
   spicy = !spicy;
   localStorage.setItem("spicy", spicy ? "1" : "0");
   renderSpicy();
@@ -269,6 +246,11 @@ ui.btnSpicy?.addEventListener("click", () => {
 
 /* -------- Profile -------- */
 let ME = null;
+
+function setSlotMetaFromProfile(p) {
+  ui.freeSpins.textContent = String(p?.free_spins ?? 0);
+  ui.meter.textContent = String(p?.meter ?? 0);
+}
 
 async function loadMe() {
   const data = await api("/api/me");
@@ -279,11 +261,6 @@ async function loadMe() {
   ui.friendCode.textContent = String(ME.user_id || "");
   setSlotMetaFromProfile(ME);
   ui.footerText.textContent = `id=${ME.user_id}`;
-}
-
-function setSlotMetaFromProfile(p) {
-  ui.freeSpins.textContent = String(p?.free_spins ?? 0);
-  ui.meter.textContent = String(p?.meter ?? 0);
 }
 
 /* -------- Friends -------- */
@@ -344,9 +321,7 @@ async function loadDuels() {
     row.className = "item";
 
     const title = `#${String(d.duel_id).slice(0, 6)} · stake ${d.stake}`;
-    const sub = d.resolved
-      ? `winner ${d.winner}`
-      : `from ${d.from} → to ${d.to}`;
+    const sub = d.resolved ? `winner ${d.winner}` : `from ${d.from} → to ${d.to}`;
 
     row.innerHTML = `
       <div class="item__main">
@@ -377,15 +352,13 @@ async function loadDuels() {
 }
 
 ui.btnRefreshDuels.addEventListener("click", () => loadDuels().catch(()=>{}));
-ui.btnPvpOpen.addEventListener("click", () => showTab("fight"));
 
-/* -------- PvE (сервер-авторитет: НЕ трогаем coins на фронте) -------- */
+/* -------- PvE (визуально) -------- */
 const ENEMIES = [
   { name: "ЭлектроДед", hp: 100 },
   { name: "График Без Оси", hp: 90 },
   { name: "Рандом без seed", hp: 80 },
 ];
-
 let enemy = null;
 let enemyHp = 100;
 
@@ -396,8 +369,7 @@ function pickEnemy() {
   ui.enemyHp.style.width = "100%";
 }
 
-ui.btnPveFight.addEventListener("click", async () => {
-  // чисто визуальная "драка", награды только через сервер (пока)
+ui.btnPveFight.addEventListener("click", () => {
   const dmg = 20 + Math.floor(Math.random() * 25);
   enemyHp = Math.max(0, enemyHp - dmg);
   ui.enemyHp.style.width = `${Math.floor((enemyHp / enemy.hp) * 100)}%`;
@@ -405,7 +377,6 @@ ui.btnPveFight.addEventListener("click", async () => {
   if (enemyHp === 0) {
     setHint(spicy ? "Ты победила. И да, это было неизбежно." : "Победа.");
     pickEnemy();
-    // sync profile (чтобы не было рассинхрона)
     loadMe().catch(()=>{});
     haptic("medium");
     return;
@@ -425,20 +396,14 @@ const SYMBOL_LABEL = {
   SCATTER: "S",
 };
 
-// ВАЖНО: раньше strip был короткий -> при extraTurns улетало в пустоту.
-// Теперь делаем длинный strip (много повторов), плюс делаем "reset to modulo" после анимации.
 const REEL_ROW_H = 50;
 const ORDER = ["BAR","BELL","SEVEN","CHERRY","STAR","COIN","SCATTER"];
 
 function buildReelStrip(elStrip) {
-  const repeats = 40; // 7*40 = 280 rows -> хватает на любые "обороты"
+  const repeats = 40;
   const rows = [];
-  for (let i = 0; i < ORDER.length * repeats; i++) {
-    rows.push(ORDER[i % ORDER.length]);
-  }
-  elStrip.innerHTML = rows
-    .map(s => `<div class="sym sym--${s}"><span>${SYMBOL_LABEL[s]}</span></div>`)
-    .join("");
+  for (let i = 0; i < ORDER.length * repeats; i++) rows.push(ORDER[i % ORDER.length]);
+  elStrip.innerHTML = rows.map(s => `<div class="sym sym--${s}"><span>${SYMBOL_LABEL[s]}</span></div>`).join("");
   return rows;
 }
 
@@ -452,47 +417,35 @@ function randomIndexOfSymbol(rows, symbol) {
   return idxs[Math.floor(Math.random() * idxs.length)];
 }
 
-function getCurrentY(elStrip) {
-  const m = /translateY\((-?\d+(\.\d+)?)px\)/.exec(elStrip.style.transform || "");
-  return m ? Number(m[1]) : 0;
-}
-
-function setReelTarget(elStrip, rows, symbol, extraTurns) {
-  const pick = randomIndexOfSymbol(rows, symbol);
-  const centerRow = 1; // средний видимый ряд
-  const base = (pick - centerRow) * REEL_ROW_H;
-  const turns = extraTurns * rows.length * REEL_ROW_H;
-
-  // целевая позиция
-  const y = -(base + turns);
-  elStrip.style.transform = `translateY(${y}px)`;
-  return { pick };
-}
-
 function normalizeReelPosition(elStrip, rows, finalSymbol) {
-  // После анимации сбрасываем transform на "эквивалентное" положение в пределах одного блока,
-  // чтобы дальше крутить снова, не улетая в космос.
   const pick = randomIndexOfSymbol(rows, finalSymbol);
   const centerRow = 1;
   const base = (pick - centerRow) * REEL_ROW_H;
   const y = -base;
+
   elStrip.style.transition = "none";
   elStrip.style.transform = `translateY(${y}px)`;
-  // reflow
-  elStrip.getBoundingClientRect();
+  elStrip.getBoundingClientRect(); // reflow
+}
+
+function setReelTarget(elStrip, rows, symbol, extraTurns) {
+  const pick = randomIndexOfSymbol(rows, symbol);
+  const centerRow = 1;
+  const base = (pick - centerRow) * REEL_ROW_H;
+  const turns = extraTurns * rows.length * REEL_ROW_H;
+  const y = -(base + turns);
+  elStrip.style.transform = `translateY(${y}px)`;
 }
 
 function pushHistory(spin) {
   const row = document.createElement("div");
   row.className = "item";
-  const sym = spin.symbols.join(" · ");
-  const badge = spin.kind.toUpperCase();
   row.innerHTML = `
     <div class="item__main">
-      <div class="item__title">${sym}</div>
+      <div class="item__title">${spin.symbols.join(" · ")}</div>
       <div class="item__sub">+${spin.winCoins} coins • +${spin.winXp} xp</div>
     </div>
-    <div class="badge2">${badge}</div>
+    <div class="badge2">${spin.kind.toUpperCase()}</div>
   `;
   ui.slotHistory.prepend(row);
   while (ui.slotHistory.children.length > 6) ui.slotHistory.lastChild.remove();
@@ -550,8 +503,15 @@ function setAuto(v) {
 
 async function slotSpinOnce() {
   if (spinningSlot) return;
-  spinningSlot = true;
 
+  const free = Number(ME?.free_spins ?? 0);
+  if (free <= 0 && autoMode) {
+    // авто выключаем, если фриспины кончились
+    setAuto(false);
+    return;
+  }
+
+  spinningSlot = true;
   ui.btnSlotSpin.disabled = true;
   ui.btnAuto.disabled = true;
 
@@ -577,24 +537,18 @@ async function slotSpinOnce() {
     setSlotMetaFromProfile(ME);
   }
 
-  // Включаем переходы
-  ui.reel0.style.transition = "transform 900ms cubic-bezier(.12,.72,.11,1)";
-  ui.reel1.style.transition = "transform 1050ms cubic-bezier(.12,.72,.11,1)";
-  ui.reel2.style.transition = "transform 1200ms cubic-bezier(.12,.72,.11,1)";
-
-  // ВАЖНО: перед установкой цели — гарантируем, что transform в пределах нормального диапазона
-  // (иначе накопится гигантский translateY при нескольких спинах)
+  // 1) normalize до анимации (без transition)
   normalizeReelPosition(ui.reel0, reelRows0, spin.symbols[0]);
   normalizeReelPosition(ui.reel1, reelRows1, spin.symbols[1]);
   normalizeReelPosition(ui.reel2, reelRows2, spin.symbols[2]);
 
-  // re-enable transitions after normalization
-  ui.reel0.getBoundingClientRect();
+  // 2) включаем transition
   ui.reel0.style.transition = "transform 900ms cubic-bezier(.12,.72,.11,1)";
   ui.reel1.style.transition = "transform 1050ms cubic-bezier(.12,.72,.11,1)";
   ui.reel2.style.transition = "transform 1200ms cubic-bezier(.12,.72,.11,1)";
+  ui.reel0.getBoundingClientRect(); // reflow перед стартом
 
-  // крутим: делаем много оборотов, но strip длинный — не пустеет
+  // 3) крутим
   setReelTarget(ui.reel0, reelRows0, spin.symbols[0], 3);
   setReelTarget(ui.reel1, reelRows1, spin.symbols[1], 4);
   setReelTarget(ui.reel2, reelRows2, spin.symbols[2], 5);
@@ -618,7 +572,7 @@ async function slotSpinOnce() {
       ui.drop.hidden = true;
     }
 
-    // после завершения — нормализуем позицию (чтобы дальше крутить корректно)
+    // 4) normalize после анимации (чтобы transform не улетал в бесконечность)
     normalizeReelPosition(ui.reel0, reelRows0, spin.symbols[0]);
     normalizeReelPosition(ui.reel1, reelRows1, spin.symbols[1]);
     normalizeReelPosition(ui.reel2, reelRows2, spin.symbols[2]);
@@ -627,10 +581,8 @@ async function slotSpinOnce() {
     ui.btnAuto.disabled = false;
     spinningSlot = false;
 
-    const free = Number(ME?.free_spins ?? 0);
-    if (autoMode && free > 0) {
-      setTimeout(() => slotSpinOnce(), 450);
-    }
+    const free2 = Number(ME?.free_spins ?? 0);
+    if (autoMode && free2 > 0) setTimeout(() => slotSpinOnce(), 450);
   }, 1300);
 }
 
