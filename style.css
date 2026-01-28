@@ -263,3 +263,56 @@ body{
 }
 .is-shake{ animation: shake 240ms ease; }
 .is-pop{ animation: pop 220ms ease; }
+/* ---------- Toast ---------- */
+.toast{
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 14px;
+  z-index: 50;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+  line-height: 1.25;
+  transform: translateY(8px);
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.toast.is-show{
+  opacity: 1;
+  transform: translateY(0);
+}
+.toast.is-win{ border-color: rgba(255,255,255,0.22); }
+.toast.is-bad{ border-color: rgba(255,255,255,0.18); opacity: 0.95; }
+
+/* ---------- Micro juice ---------- */
+@keyframes punch {
+  0%{ transform: translateX(0) scale(1); }
+  20%{ transform: translateX(-2px) scale(1.01); }
+  40%{ transform: translateX(3px) scale(1.01); }
+  60%{ transform: translateX(-2px) scale(1.01); }
+  80%{ transform: translateX(2px) scale(1.01); }
+  100%{ transform: translateX(0) scale(1); }
+}
+@keyframes winflash {
+  0%{ opacity:0; }
+  25%{ opacity:1; }
+  100%{ opacity:0; }
+}
+.is-punch{ animation: punch 220ms ease; }
+
+/* Slot flash overlay (если у тебя есть slotGlow — отлично) */
+.slot-glow.is-flash::after{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.10);
+  animation: winflash 320ms ease;
+  pointer-events:none;
+}

@@ -12,6 +12,8 @@ function mulberry32(seed) {
   };
 }
 
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
 /* character stats stored in avatar_id: "char|str=.|def=.|int=.|luck=." */
 function parseStats(avatarId) {
   const base = { str: 1, def: 1, int: 1, luck: 1 };
@@ -36,7 +38,6 @@ const ENEMIES = [
 ];
 
 function enemyStats(enemy, playerLevel) {
-  // Мягкая шкала сложности: tier влияет сильнее, level — чуть-чуть
   const lvl = Math.max(1, Number(playerLevel) || 1);
   const t = enemy.tier || 1;
 
@@ -74,80 +75,103 @@ function simulateFight(statsA, statsB, seed) {
   return { winner: aHP >= bHP ? "YOU" : "ENEMY", log };
 }
 
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-
-export async function onRequest({ request, env }) {
-  const initData = getInitDataFromRequest(request);
-  const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
-
-  const p = await getOrCreatePlayer(env, userId, username);
-
-  if (request.method !== "POST") return json(405, { error: "Method not allowed" });
-
-  const body = await request.json().catch(() => ({}));
-  const enemy_id = String(body.enemy_id || "");
-  const stake = Number(body.stake || 10);
-  const lang = String(body.lang || "ru");
-
-  if (!["ru", "en", "cn"].includes(lang)) return json(400, { error: "Bad lang" });
-  if (![10, 25, 50].includes(stake)) return json(400, { error: "Bad stake" });
-
-  const enemy = ENEMIES.find(e => e.id === enemy_id) || ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
-
-  // проверим деньги
-  if ((p.coins ?? 0) < stake) return json(400, { error: "Not enough coins" });
-
-  const seed = Math.floor(Math.random() * 1e9);
-  const you = parseStats(p.avatar_id);
-  const bot = enemyStats(enemy, p.level);
-
-  const { winner, log } = simulateFight(you, bot, seed);
-
-  // экономика + XP + очки
-  const win = winner === "YOU";
-
-  // XP: за бой чуть-чуть, за победу больше, за сложных врагов тоже
-  const tier = enemy.tier || 1;
-  const baseXp = 2 + tier;
-  const winXp = win ? (3 + tier) : 1;
-  const gainXp = baseXp + winXp;
-
-  // coins: победа = +stake, поражение = -stake (как в дуэлях)
-  const deltaCoins = win ? stake : -stake;
-
-  // glory: маленький рейтинг (не деньги)
-  const deltaGlory = win ? (2 + tier) : -1;
-
-  p.coins = (p.coins || 0) + deltaCoins;
-  p.xp = (p.xp || 0) + gainXp;
-  p.glory = clamp((p.glory || 0) + deltaGlory, 0, 999999);
-
-  // leveling как в spin.js
+function levelUp(p) {
   const need = (lvl) => 50 + (lvl - 1) * 25;
   while (p.xp >= need(p.level || 1)) {
     p.xp -= need(p.level || 1);
     p.level = (p.level || 1) + 1;
   }
+}
 
-  await savePlayer(env, p);
+export async function onRequest({ request, env }) {
+  try {
+    const initData = getInitDataFromRequest(request);
+    const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
 
-  const name =
-    lang === "cn" ? enemy.cn :
-    lang === "en" ? enemy.en :
-    enemy.ru;
+    const p = await getOrCreatePlayer(env, userId, username);
 
-  return json(200, {
-    ok: true,
-    enemy: { id: enemy.id, name, tier },
-    result: {
-      win,
-      seed,
-      stake,
-      deltaCoins,
-      gainXp,
-      deltaGlory,
-      log
-    },
-    profile: p
-  });
+    if (request.method !== "POST") return json(405, { error: "Method not allowed" });
+
+    const body = await request.json().catch(() => ({}));
+    const enemy_id = String(body.enemy_id || "");
+    const stake = Number(body.stake || 25);
+    const lang = String(body.lang || "ru");
+
+    if (!["ru", "en", "cn"].includes(lang)) return json(400, { error: "Bad lang" });
+    if (![10, 25, 50].includes(stake)) return json(400, { error: "Bad stake" });
+
+    const enemy =
+      ENEMIES.find(e => e.id === enemy_id) ||
+      ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
+
+    if ((p.coins ?? 0) < stake) return json(400, { error: "Not enough coins" });
+
+    const seed = Math.floor(Math.random() * 1e9);
+    const you = parseStats(p.avatar_id);
+    const bot = enemyStats(enemy, p.level);
+
+    const { winner, log } = simulateFight(you, bot, seed);
+    const win = winner === "YOU";
+    const tier = enemy.tier || 1;
+
+    // ---- rewards (server-authoritative) ----
+    // coins: win +stake, lose -stake
+    const deltaCoins = win ? stake : -stake;
+
+    // xp: небольшая базовая + за победу + за tier
+    const gainXp = (2 + tier) + (win ? (3 + tier) : 1);
+
+    // glory: микрорейтинг
+    const deltaGlory = win ? (2 + tier) : -1;
+
+    p.coins = (p.coins || 0) + deltaCoins;
+    p.xp = (p.xp || 0) + gainXp;
+    p.glory = clamp((p.glory || 0) + deltaGlory, 0, 999999);
+
+    levelUp(p);
+
+    // ---- daily bonus: 1 раз в 24 часа за первую победу ----
+    const now = Date.now();
+    let daily = { triggered: false, coins: 0, glory: 0 };
+
+    if (win) {
+      const last = Number(p.daily_pve_ts || 0);
+      const day = 24 * 60 * 60 * 1000;
+
+      if (now - last >= day) {
+        daily.triggered = true;
+        daily.coins = 15 + tier * 5;
+        daily.glory = 2 + tier;
+
+        p.coins += daily.coins;
+        p.glory = clamp((p.glory || 0) + daily.glory, 0, 999999);
+        p.daily_pve_ts = now;
+      }
+    }
+
+    await savePlayer(env, p);
+
+    const name =
+      lang === "cn" ? enemy.cn :
+      lang === "en" ? enemy.en :
+      enemy.ru;
+
+    return json(200, {
+      ok: true,
+      enemy: { id: enemy.id, name, tier },
+      result: {
+        win,
+        seed,
+        stake,
+        deltaCoins,
+        gainXp,
+        deltaGlory,
+        log
+      },
+      daily,
+      profile: p
+    });
+  } catch (e) {
+    return json(401, { detail: `Auth failed: ${e.message || e}` });
+  }
 }

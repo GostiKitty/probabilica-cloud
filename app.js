@@ -112,6 +112,79 @@ const I18N = {
     history: "记录",
   }
 };
+const JOKES = {
+  ru: {
+    pve_btn: [
+      "Пойти разбираться",
+      "Сделать больно",
+      "Вызвать на разговор",
+      "Нажать и не думать",
+    ],
+    pve_btn_spicy: [
+      "Пошли, нах*й, на бой",
+      "Дай ему по щам",
+      "Сейчас будет разбор",
+      "Давай быстро и жёстко",
+    ],
+    pve_win: [
+      "Чисто. Без лишних движений.",
+      "Убедительно.",
+      "Вынесла. Дальше.",
+      "Он понял намёк.",
+    ],
+    pve_win_spicy: [
+      "Размотала. Красиво.",
+      "Выдала по фактам, без соплей.",
+      "Это было… избыточно. Мне нравится.",
+      "Он сам виноват, честно.",
+    ],
+    pve_lose: [
+      "Не зашло.",
+      "Мимо. Пересоберись.",
+      "Сегодня не твой матч.",
+      "Он оказался неприятным.",
+    ],
+    pve_lose_spicy: [
+      "Тебя аккуратно приземлили.",
+      "Ну… бывает. Давай ещё раз, без позора.",
+      "Это был щелчок по самолюбию, да.",
+      "Окей. Сейчас соберёмся и разнесём.",
+    ],
+    stake_label: (s) => `Ставка ${s}`,
+    pve_reward: ({dc, xp, g}) => `${dc>0?"+":""}${dc} coins • +${xp} xp • ${g>0?"+":""}${g} glory`,
+  },
+
+  en: {
+    pve_btn: ["Fight", "Proceed", "Do it", "Take the duel"],
+    pve_btn_spicy: ["Send it", "Make it hurt", "No mercy", "Proceed. Hard."],
+    pve_win: ["Clean.", "Convincing.", "Nice.", "Approved."],
+    pve_win_spicy: ["Absolutely cooked.", "That was personal.", "Brutal. Good.", "They learned."],
+    pve_lose: ["Nope.", "Not today.", "Reset.", "Try again."],
+    pve_lose_spicy: ["You got checked.", "That stung.", "Again. Properly.", "We’re not done."],
+    stake_label: (s) => `Stake ${s}`,
+    pve_reward: ({dc, xp, g}) => `${dc>0?"+":""}${dc} coins • +${xp} xp • ${g>0?"+":""}${g} glory`,
+  },
+
+  cn: {
+    pve_btn: ["开打", "战斗", "上", "开始"],
+    pve_btn_spicy: ["狠狠干", "来真的", "不讲理", "动手"],
+    pve_win: ["干净。", "漂亮。", "可以。", "通过。"],
+    pve_win_spicy: ["直接打穿。", "太狠了。", "很猛。", "他学会了。"],
+    pve_lose: ["没事。", "再来。", "不急。", "重开。"],
+    pve_lose_spicy: ["被教育了。", "有点痛。", "再狠狠干一次。", "这把不算。"],
+    stake_label: (s) => `下注 ${s}`,
+    pve_reward: ({dc, xp, g}) => `${dc>0?"+":""}${dc} coins • +${xp} xp • ${g>0?"+":""}${g} glory`,
+  }
+};
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function joke(key) {
+  const pack = JOKES[LANG] || JOKES.ru;
+  if (spicy && pack[`${key}_spicy`]) return pick(pack[`${key}_spicy`]);
+  return pick(pack[key] || ["—"]);
+}
+
 
 let LANG = localStorage.getItem("lang") || "ru";
 if (!I18N[LANG]) LANG = "ru";
@@ -193,12 +266,44 @@ const ui = {
   dropSub: document.getElementById("dropSub"),
 
   hint: document.getElementById("hint"),
+  toast: document.getElementById("toast"),
+
 };
 
 function setHint(text) {
   if (!ui.hint) return;
   ui.hint.textContent = text || "";
 }
+let toastTimer = null;
+
+function toast(text, type = "info") {
+  if (!ui.toast) return;
+  if (toastTimer) clearTimeout(toastTimer);
+
+  ui.toast.hidden = false;
+  ui.toast.textContent = text;
+
+  ui.toast.classList.remove("is-show", "is-win", "is-bad");
+  if (type === "win") ui.toast.classList.add("is-win");
+  if (type === "bad") ui.toast.classList.add("is-bad");
+
+  // reflow
+  ui.toast.getBoundingClientRect();
+  ui.toast.classList.add("is-show");
+
+  toastTimer = setTimeout(() => {
+    ui.toast.classList.remove("is-show");
+    setTimeout(() => { ui.toast.hidden = true; }, 220);
+  }, 1400);
+}
+
+function punch(el) {
+  if (!el) return;
+  el.classList.remove("is-punch");
+  el.getBoundingClientRect();
+  el.classList.add("is-punch");
+}
+
 
 /* -------- Tabs -------- */
 function showTab(name) {
@@ -223,6 +328,8 @@ function renderStaticText() {
   ui.tabFight.textContent = t("fight");
   ui.tabFriends.textContent = t("friends");
   ui.tabSlot.textContent = t("slot");
+  ui.btnPveFight.textContent = joke("pve_btn");
+
 
   ui.ttlPve.textContent = t("pve");
   ui.ttlPvp.textContent = t("pvp");
@@ -506,7 +613,31 @@ ui.btnPveFight.addEventListener("click", async () => {
     const xpPart = `+${res.gainXp} xp`;
     const gloryPart = `${res.deltaGlory > 0 ? "+" : ""}${res.deltaGlory} glory`;
 
-    ui.fightLog.textContent = `${line}  ${coinsPart} • ${xpPart} • ${gloryPart}`;
+    const res = r.result;
+    const win = !!res.win;
+
+    const line = win ? joke("pve_win") : joke("pve_lose");
+    const reward = (JOKES[LANG] || JOKES.ru).pve_reward({
+      dc: res.deltaCoins,
+      xp: res.gainXp,
+      g: res.deltaGlory
+    });
+
+    ui.fightLog.textContent = `${line}\n${reward}`;
+
+    toast(win ? line : line, win ? "win" : "bad");
+    punch(ui.enemyCard);
+    if (win) punch(ui.coins);
+
+    if (win) {
+      // косметика — бар HP в ноль, потом новый враг
+      ui.enemyHp.style.width = "0%";
+      setTimeout(() => {
+        pickEnemy();
+        ui.enemyHp.style.width = "100%";
+      }, 420);
+    }
+
 
     animateHit(win);
 
@@ -569,6 +700,14 @@ function slotComment(kind) {
     big: ["Вот.", "Красиво.", "Плотно."],
     scatter: ["Бонус.", "Фриспины.", "Поехали."],
     meter: ["Шкала закрыта.", "Фриспины.", "Включилось."],
+    big: spicy
+      ? ["Ого. Это грязно. Мне нравится.", "Разъеб.", "Слишком хорошо.", "Наконец-то нормально."]
+      : ["Вот.", "Красиво.", "Плотно.", "Есть."],
+
+    scatter: spicy
+      ? ["Фриспины. Пошло мясо.", "Окей. Понеслась.", "Бонус. Не дыши."]
+      : ["Бонус.", "Фриспины.", "Поехали."],
+
   };
   const EN = {
     lose: ["No.", "Miss.", "Dry."],
@@ -676,6 +815,12 @@ async function slotSpinOnce() {
     ui.slotComment.textContent = slotComment(kind);
 
     setGlow(spin.kind, spin.bonus_until);
+    if (spin.kind === "win" || spin.kind === "big" || spin.kind === "scatter") {
+      ui.slotGlow?.classList.remove("is-flash");
+      ui.slotGlow?.getBoundingClientRect?.();
+      ui.slotGlow?.classList.add("is-flash");
+    }
+
     pushHistory(spin);
 
     if (spin.drop) {

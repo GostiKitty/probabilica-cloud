@@ -26,27 +26,34 @@ export async function getOrCreatePlayer(env, userId, username) {
       // meta/rating
       glory: 0,
 
+      // daily meta (PvE)
+      daily_pve_ts: 0,
+
       // slot meta
       free_spins: 0,
       meter: 0,           // 0..10
       bonus_until: 0,     // timestamp ms
       last_spin_ts: 0
     };
+
     await env.PROB_KV.put(key, JSON.stringify(p));
     return p;
   }
 
-  // миграции/дефолты
+  // миграции/дефолты (если у старых профилей полей нет)
   if (p.free_spins == null) p.free_spins = 0;
   if (p.meter == null) p.meter = 0;
   if (p.bonus_until == null) p.bonus_until = 0;
   if (p.last_spin_ts == null) p.last_spin_ts = 0;
+
   if (p.glory == null) p.glory = 0;
+  if (p.daily_pve_ts == null) p.daily_pve_ts = 0;
 
   if (username && p.username !== username) {
     p.username = username;
     await env.PROB_KV.put(key, JSON.stringify(p));
   }
+
   return p;
 }
 
