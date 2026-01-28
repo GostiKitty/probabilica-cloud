@@ -1,132 +1,92 @@
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+function randU32() {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return a[0] >>> 0;
+}
+
+// простой LCG для детерминированности результата по seed
+function makeRng(seed) {
+  let x = (seed >>> 0) || 123456789;
+  return () => {
+    x = (1664525 * x + 1013904223) >>> 0;
+    return x / 4294967296;
   };
 }
 
-export const SYMBOLS = [
-  { id: "BAR", w: 12 },
-  { id: "BELL", w: 10 },
-  { id: "SEVEN", w: 4 },
-  { id: "CHERRY", w: 14 },
-  { id: "STAR", w: 8 },
-  { id: "COIN", w: 12 },
-  { id: "SCATTER", w: 3 }, // дает фриспины
-];
+const SYMBOLS = ["BAR","BELL","SEVEN","CHERRY","STAR","COIN","SCATTER"];
 
-function pickWeighted(rng) {
-  const sum = SYMBOLS.reduce((a, s) => a + s.w, 0);
-  let r = rng() * sum;
+export function spinSlot({ seed, luck = 1, bonusMode = false }) {
+  seed = Number.isFinite(seed) ? seed : randU32();
+  luck = Math.max(1, Math.min(10, Number(luck) || 1));
+
+  const rng = makeRng(seed);
+
+  // базовые веса
+  const base = {
+    BAR: 10,
+    BELL: 12,
+    SEVEN: 4,
+    CHERRY: 16,
+    STAR: 10,
+    COIN: 18,
+    SCATTER: 6,
+  };
+
+  // luck слегка увеличивает шанс "хороших" символов
+  base.SEVEN += Math.floor(luck / 2);
+  base.STAR += Math.floor(luck / 3);
+  base.SCATTER += Math.floor(luck / 3);
+
+  // bonusMode чуть поднимает rare
+  if (bonusMode) {
+    base.SEVEN += 2;
+    base.SCATTER += 2;
+    base.STAR += 1;
+  }
+
+  const pool = [];
   for (const s of SYMBOLS) {
-    r -= s.w;
-    if (r <= 0) return s.id;
+    for (let i = 0; i < base[s]; i++) pool.push(s);
   }
-  return "BAR";
-}
 
-function payoutFor3(symbol) {
-  // аккуратно: не делаем “миллионы”, чтобы экономика не ломалась
-  switch (symbol) {
-    case "CHERRY": return 8;
-    case "COIN": return 10;
-    case "BAR": return 12;
-    case "BELL": return 16;
-    case "STAR": return 24;
-    case "SEVEN": return 60;
-    default: return 0;
+  function pick() {
+    const i = Math.floor(rng() * pool.length);
+    return pool[i];
   }
-}
 
-function isNearMiss(a, b, c) {
-  // 2 одинаковых, третья другая, но не scatter-комбо
-  if (a === "SCATTER" || b === "SCATTER" || c === "SCATTER") return false;
-  return (a === b && b !== c) || (a === c && a !== b) || (b === c && a !== b);
-}
-export function spinSlot({ seed, bonusMode = false, luck = 1 }) {
-  const rng = mulberry32(seed);
+  const a = pick();
+  const b = pick();
+  const c = pick();
 
-  // luck влияет мягко: чуть чаще редкие, чуть чаще scatter
-  const luckBoost = Math.min(0.18, Math.max(0, (luck - 1) * 0.012)); // 0..0.18
+  const symbols = [a, b, c];
 
-  const roll = () => {
-    // bonusMode: чуть повышаем шанс STAR/SEVEN
-    const x = rng();
-
-    // scatter шанс слегка растёт от luck
-    if (x < 0.035 + luckBoost * 0.45) return "SCATTER";
-
-    if (bonusMode) {
-      if (x < 0.06 + luckBoost * 0.25) return "SEVEN";
-      if (x < 0.14 + luckBoost * 0.25) return "STAR";
-    } else {
-      // вне бонуса очень редко даём SEVEN/STAR по luck
-      if (x < 0.018 + luckBoost * 0.18) return "SEVEN";
-      if (x < 0.050 + luckBoost * 0.20) return "STAR";
-    }
-
-    return pickWeighted(rng);
-  };
-
-  const a = roll();
-  const b = roll();
-  const c = roll();
-
-  const scatters = [a, b, c].filter(s => s === "SCATTER").length;
-
+  // kind + payout
+  let kind = "lose";
   let winCoins = 0;
-  let winXp = 0;
-  let kind = "lose"; // lose | near | win | big | scatter
+  let winXp = 1;
 
-  if (scatters === 3) {
+  const allSame = a === b && b === c;
+  const anyScatter = symbols.filter(s => s === "SCATTER").length;
+
+  if (anyScatter >= 2) {
     kind = "scatter";
-    winCoins = 18;
-    winXp = 8;
-  } else if (a === b && b === c) {
-    winCoins = payoutFor3(a);
-    winXp = Math.max(3, Math.floor(winCoins / 4));
-    kind = winCoins >= 50 ? "big" : "win";
-  } else if (isNearMiss(a, b, c)) {
+    winCoins = 10;
+    winXp = 3;
+  } else if (allSame) {
+    kind = (a === "SEVEN" || a === "SCATTER") ? "big" : "win";
+    winCoins = a === "SEVEN" ? 45 : 20;
+    winXp = a === "SEVEN" ? 10 : 6;
+  } else if (a === b || b === c || a === c) {
     kind = "near";
-    winCoins = 2;
-    winXp = 1;
-  } else {
-    winCoins = 0;
-    winXp = 1;
+    winCoins = 4;
+    winXp = 2;
   }
 
-  // drops (трофеи): редкий шанс, больше в big/scatter и с luck
+  // drop может быть
   let drop = null;
-  const dropRoll = rng();
-  const baseDrop =
-    kind === "scatter" ? 0.22 :
-    kind === "big" ? 0.14 :
-    kind === "win" ? 0.06 :
-    kind === "near" ? 0.03 : 0.015;
-
-  const dropChance = Math.min(0.35, baseDrop + luckBoost * 0.30 + (bonusMode ? 0.03 : 0));
-
-  if (dropRoll < dropChance) {
-    // 3 стиля трофеев — выбор по luck/рандому, но без эмодзи
-    const pack = [
-      { id: "ticket", title: "Талончик удачи", effect: "meter+2" },
-      { id: "receipt", title: "Lucky receipt", effect: "coins+5" },
-      { id: "fuxian", title: "福签", effect: "free+1" },
-      { id: "key", title: "Spare key", effect: "xp+3" },
-      { id: "coinseal", title: "Монетная печать", effect: "bonus+30s" },
-    ];
-    drop = pack[Math.floor(rng() * pack.length)];
+  if (kind === "big" && rng() < 0.20) {
+    drop = { title: "Drop", effect: "Luck +1 (visual)" };
   }
 
-  return {
-    symbols: [a, b, c],
-    kind,
-    winCoins,
-    winXp,
-    drop
-  };
+  return { seed, symbols, kind, winCoins, winXp, drop };
 }
-

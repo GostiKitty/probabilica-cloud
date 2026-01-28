@@ -1,15 +1,23 @@
-import { json, getInitDataFromRequest, verifyInitData } from "../_lib/auth.js";
-import { createDuel, getOrCreatePlayer } from "../_lib/store.js";
+import { json, getInitDataFromRequest, verifyInitData, readJson } from "../_lib/auth.js";
+import { getOrCreatePlayer, createDuel } from "../_lib/store.js";
 
 export async function onRequest({ request, env }) {
-  const initData = getInitDataFromRequest(request);
-  const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
+  try {
+    const initData = getInitDataFromRequest(request);
+    const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
+    const me = await getOrCreatePlayer(env, userId, username);
 
-  await getOrCreatePlayer(env, userId, username);
+    if (request.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  if (request.method !== "POST") return json(405, { error: "Method not allowed" });
+    const body = await readJson(request);
+    const to_id = Number(body.to_id);
+    const stake = Number(body.stake);
 
-  const body = await request.json().catch(() => ({}));
-  const duel = await createDuel(env, userId, body.to_id, body.stake);
-  return json(200, { duel });
+    if ((me.coins ?? 0) < stake) return json(400, { error: "Not enough coins" });
+
+    const duel = await createDuel(env, userId, to_id, stake);
+    return json(200, { duel });
+  } catch (e) {
+    return json(401, { detail: `Auth failed: ${e.message || e}` });
+  }
 }

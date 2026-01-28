@@ -1,14 +1,10 @@
 export function getInitDataFromRequest(request) {
   const h = request.headers;
   return (
-    // то, что шлёт твой frontend/app.js
     h.get("X-Telegram-InitData") ||
     h.get("x-telegram-initdata") ||
-
-    // на всякий случай: если где-то будет другой клиент/код
     h.get("X-TG-Init-Data") ||
     h.get("x-tg-init-data") ||
-
     ""
   );
 }
@@ -19,7 +15,7 @@ function toHex(buffer) {
     .join("");
 }
 
-async function hmacSha256Hex(keyBytes, message) {
+async function hmacSha256Bytes(keyBytes, message) {
   const key = await crypto.subtle.importKey(
     "raw",
     keyBytes,
@@ -32,19 +28,15 @@ async function hmacSha256Hex(keyBytes, message) {
     key,
     new TextEncoder().encode(message)
   );
-  return toHex(sig);
+  return new Uint8Array(sig);
 }
 
-async function sha256Bytes(text) {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(text)
-  );
-  return new Uint8Array(buf);
+async function hmacSha256Hex(keyBytes, message) {
+  const bytes = await hmacSha256Bytes(keyBytes, message);
+  return toHex(bytes);
 }
 
 function parseInitData(initData) {
-  // initData = "query_id=...&user=...&hash=..."
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
   if (!hash) throw new Error("No hash in initData");
@@ -56,14 +48,29 @@ function parseInitData(initData) {
 }
 
 export async function verifyInitData(initData, botToken) {
+  if (!botToken) throw new Error("No BOT_TOKEN");
   if (!initData) throw new Error("No initData");
 
   const { hash, dataCheckString, params } = parseInitData(initData);
 
-  const secretKey = await sha256Bytes(botToken);
+  // Telegram Mini Apps:
+  // secret_key = HMAC_SHA256(bot_token, key="WebAppData")
+  const secretKey = await hmacSha256Bytes(
+    new TextEncoder().encode("WebAppData"),
+    botToken
+  );
+
+  // calc_hash = HMAC_SHA256(data_check_string, key=secret_key)
   const calcHash = await hmacSha256Hex(secretKey, dataCheckString);
 
   if (calcHash !== hash) throw new Error("Bad initData hash");
+
+  // optional security: freshness
+  const authDate = Number(params.get("auth_date") || 0);
+  if (!authDate) throw new Error("No auth_date");
+
+  const ageSec = Math.floor(Date.now() / 1000) - authDate;
+  if (ageSec > 24 * 3600) throw new Error("initData expired");
 
   const userRaw = params.get("user");
   if (!userRaw) throw new Error("No user in initData");

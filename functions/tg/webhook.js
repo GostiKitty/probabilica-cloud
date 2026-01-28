@@ -17,7 +17,12 @@ export async function onRequest({ request, env }) {
   try { update = await request.json(); } catch { return json(200, { ok: true }); }
 
   const chatId = update?.message?.chat?.id;
+  const text = update?.message?.text || "";
+
   if (!chatId || !env.BOT_TOKEN) return json(200, { ok: true });
+
+  // отвечаем только на /start (иначе будет бесконечный спам)
+  if (!text.startsWith("/start")) return json(200, { ok: true });
 
   let webappUrl =
     (env.WEBAPP_URL && env.WEBAPP_URL.trim()) ||
@@ -33,6 +38,7 @@ export async function onRequest({ request, env }) {
     reply_markup: {
       keyboard: [[{ text: "Играть", web_app: { url: webappUrl } }]],
       resize_keyboard: true,
+      one_time_keyboard: true,
     },
   });
 

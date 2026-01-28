@@ -1,101 +1,70 @@
-import { json, getInitDataFromRequest, verifyInitData } from "../_lib/auth.js";
-import { getDuel, getOrCreatePlayer, savePlayer } from "../_lib/store.js";
+import { json, getInitDataFromRequest, verifyInitData, readJson } from "../_lib/auth.js";
+import { getOrCreatePlayer, savePlayer, getDuel } from "../_lib/store.js";
 
-/* RNG */
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+function randU32() {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return a[0] >>> 0;
+}
+function makeRng(seed) {
+  let x = (seed >>> 0) || 123456789;
+  return () => {
+    x = (1664525 * x + 1013904223) >>> 0;
+    return x / 4294967296;
   };
 }
 
-/* character stats stored in avatar_id: "char|str=..|def=..|int=..|luck=.." */
-function parseStats(avatarId) {
-  const base = { str: 1, def: 1, int: 1, luck: 1 };
-  const s = String(avatarId || "");
-  if (!s.startsWith("char|")) return base;
-
-  const parts = s.split("|").slice(1);
-  for (const p of parts) {
-    const [k, v] = p.split("=");
-    if (!k) continue;
-    if (k in base) base[k] = Math.max(1, Math.min(50, Number(v) || base[k]));
-  }
-  return base;
-}
-
-function simulateFight(statsA, statsB, seed) {
-  const rng = mulberry32(seed);
-
-  let aHP = 100 + statsA.def * 6;
-  let bHP = 100 + statsB.def * 6;
-
-  for (let r = 0; r < 3; r++) {
-    const aCrit = rng() < (0.05 + statsA.int * 0.002);
-    const aDmg = Math.max(1, statsA.str * (aCrit ? 1.6 : 1.0) + rng() * statsA.luck);
-    bHP -= aDmg;
-
-    if (bHP <= 0) return "A";
-
-    const bCrit = rng() < (0.05 + statsB.int * 0.002);
-    const bDmg = Math.max(1, statsB.str * (bCrit ? 1.6 : 1.0) + rng() * statsB.luck);
-    aHP -= bDmg;
-
-    if (aHP <= 0) return "B";
-  }
-  return aHP >= bHP ? "A" : "B";
-}
-
 export async function onRequest({ request, env }) {
-  const initData = getInitDataFromRequest(request);
-  const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
+  try {
+    const initData = getInitDataFromRequest(request);
+    const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
+    const me = await getOrCreatePlayer(env, userId, username);
 
-  await getOrCreatePlayer(env, userId, username);
+    if (request.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  if (request.method !== "POST") return json(405, { error: "Method not allowed" });
+    const body = await readJson(request);
+    const duel_id = String(body.duel_id || "");
+    if (!duel_id) return json(400, { error: "No duel_id" });
 
-  const body = await request.json().catch(() => ({}));
-  const duelId = body.duel_id;
-  const duel = await getDuel(env, duelId);
+    const duel = await getDuel(env, duel_id);
+    if (!duel) return json(404, { error: "Duel not found" });
+    if (duel.resolved) return json(200, { duel, profile: me });
 
-  if (!duel) return json(404, { error: "Duel not found" });
-  if (duel.resolved) return json(200, { duel });
+    if (duel.to !== userId) return json(403, { error: "Not your duel" });
 
-  // только участники могут резолвить
-  if (userId !== duel.from && userId !== duel.to) return json(403, { error: "Forbidden" });
+    const from = await getOrCreatePlayer(env, duel.from, null);
+    const to = me;
 
-  const pA = await getOrCreatePlayer(env, duel.from, null);
-  const pB = await getOrCreatePlayer(env, duel.to, null);
+    if ((from.coins ?? 0) < duel.stake) return json(400, { error: "From has not enough coins" });
+    if ((to.coins ?? 0) < duel.stake) return json(400, { error: "You have not enough coins" });
 
-  // проверим деньги
-  if ((pA.coins ?? 0) < duel.stake) return json(400, { error: "From has not enough coins" });
-  if ((pB.coins ?? 0) < duel.stake) return json(400, { error: "To has not enough coins" });
+    // решаем детерминированно (seed = duel.seed + немного соли)
+    const rng = makeRng((Number(duel.seed) || randU32()) ^ randU32());
 
-  const sA = parseStats(pA.avatar_id);
-  const sB = parseStats(pB.avatar_id);
+    const fromScore = rng() + (Math.min(10, Number(from.level || 1)) * 0.01);
+    const toScore   = rng() + (Math.min(10, Number(to.level || 1)) * 0.01);
 
-  const winnerSide = simulateFight(sA, sB, duel.seed);
-  const winnerId = winnerSide === "A" ? duel.from : duel.to;
-  const loserId = winnerSide === "A" ? duel.to : duel.from;
+    const winner = fromScore >= toScore ? from.user_id : to.user_id;
 
-  // экономика: победитель получает stake, проигравший теряет stake
-  if (winnerId === duel.from) {
-    pA.coins += duel.stake;
-    pB.coins -= duel.stake;
-  } else {
-    pB.coins += duel.stake;
-    pA.coins -= duel.stake;
+    // выплата: победитель забирает stake у проигравшего
+    if (winner === from.user_id) {
+      from.coins -= duel.stake;
+      to.coins += duel.stake;
+    } else {
+      to.coins -= duel.stake;
+      from.coins += duel.stake;
+    }
+
+    duel.resolved = true;
+    duel.winner = winner;
+
+    // сохранить duel + профили
+    await env.PROB_KV.put(`duel:${duel.duel_id}`, JSON.stringify(duel));
+    await savePlayer(env, from);
+    await savePlayer(env, to);
+
+    return json(200, { duel, profile: to });
+  } catch (e) {
+    return json(401, { detail: `Auth failed: ${e.message || e}` });
   }
-
-  duel.resolved = true;
-  duel.winner = winnerId;
-
-  await savePlayer(env, pA);
-  await savePlayer(env, pB);
-  await env.PROB_KV.put(`duel:${duel.duel_id}`, JSON.stringify(duel));
-
-  return json(200, { duel, winner_id: winnerId, loser_id: loserId });
 }
