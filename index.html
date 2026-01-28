@@ -4,10 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Probabilica</title>
-
-  <link rel="stylesheet" href="/style.css?v=15" />
+  <link rel="stylesheet" href="/style.css?v=14" />
+  <script type="module" src="/app.js?v=14"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script type="module" src="/app.js?v=15"></script>
 </head>
 
 <body>
@@ -38,6 +37,10 @@
           <div class="k" id="lblXp">Опыт</div>
           <div class="v mono" id="xp">0</div>
         </div>
+        <div class="hero__item">
+          <div class="k" id="lblGlory">Glory</div>
+          <div class="v mono" id="glory">0</div>
+        </div>
       </div>
 
       <div class="hero__row hero__row--2">
@@ -59,35 +62,50 @@
       <section class="card" data-panel="fight">
         <div class="card__title" id="ttlPve">PvE</div>
 
-        <div class="enemy">
-          <div class="enemy__name" id="enemyName"></div>
-          <div class="enemy__bar">
-            <div class="enemy__hp" id="enemyHp" style="width:100%"></div>
+        <div class="enemy" id="enemyCard">
+          <div class="enemy__name" id="enemyName">—</div>
+          <div class="enemy__sub" id="enemySub">—</div>
+
+          <div class="enemybar">
+            <div class="enemybar__fill" id="enemyHp"></div>
           </div>
         </div>
 
-        <div class="row2">
-          <button class="btn btn--primary" id="btnPveFight">Fight</button>
-          <button class="btn btn--secondary" id="btnPvpOpen">PvP</button>
+        <div class="row3">
+          <button class="btn btn--secondary stake" data-stake="10">10</button>
+          <button class="btn btn--secondary stake" data-stake="25">25</button>
+          <button class="btn btn--secondary stake" data-stake="50">50</button>
         </div>
 
-        <div class="hint" id="hint"></div>
+        <button class="btn btn--primary" id="btnPveFight">Fight</button>
+
+        <div class="result" id="fightLog"></div>
 
         <div class="divider"></div>
 
-        <div class="card__title" style="margin-top:0" id="ttlPvp">PvP</div>
+        <div class="card__title" id="ttlPvp">PvP</div>
+        <div class="row2">
+          <input class="input mono" id="pvpToId" placeholder="friend id" />
+          <select class="input" id="pvpStake">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <button class="btn btn--secondary" id="btnCreateDuel">Challenge</button>
 
-        <div class="pvp">
-          <div class="pvp__left">
-            <div class="k">Duel</div>
-            <div class="v" id="pvpStatus">—</div>
-          </div>
-          <div class="pvp__right">
-            <button class="btn btn--secondary" id="btnRefreshDuels">Refresh</button>
+        <div class="result" id="duelLog"></div>
+
+        <div class="divider"></div>
+
+        <div class="row2">
+          <button class="btn btn--secondary" id="btnRefreshDuels">Refresh</button>
+          <div class="meta-pill" style="justify-self:end">
+            PvP: <span class="mono" id="pvpStatus">—</span>
           </div>
         </div>
 
-        <div class="duels" id="duels"></div>
+        <div class="list" id="duels"></div>
       </section>
 
       <!-- FRIENDS -->
@@ -95,53 +113,51 @@
         <div class="card__title" id="ttlFriends">Friends</div>
 
         <div class="row2">
-          <input class="input" id="friendInput" placeholder="ID" inputmode="numeric" />
-          <button class="btn btn--primary" id="btnAddFriend">Add</button>
+          <input class="input mono" id="friendInput" placeholder="friend id" />
+          <button class="btn btn--secondary" id="btnAddFriend">Add</button>
         </div>
 
-        <div class="friends" id="friends"></div>
+        <div class="list" id="friends"></div>
       </section>
 
       <!-- SLOT -->
       <section class="card" data-panel="slot" hidden>
         <div class="card__title" id="ttlSlot">Slot</div>
 
-        <div class="slot-meta">
-          <div class="meta-pill"><span id="lblFree">Free</span>: <span class="mono" id="freeSpins">0</span></div>
-          <div class="meta-pill"><span id="lblMeter">Meter</span>: <span class="mono" id="meter">0</span>/10</div>
+        <div class="slot-head">
+          <div class="slot-meta">
+            <div class="meta-pill"><span id="lblFree">Фриспины</span>: <span class="mono" id="freeSpins">0</span></div>
+            <div class="meta-pill"><span id="lblMeter">Шкала</span>: <span class="mono" id="meter">0</span></div>
+          </div>
+          <div style="display:flex; gap:10px">
+            <button class="btn btn--secondary" id="btnAuto">Авто</button>
+            <button class="btn btn--primary" id="btnSlotSpin">Крутить</button>
+          </div>
         </div>
 
-        <div class="slot-machine" id="slotMachine">
-          <div class="reel" data-reel="0"><div class="reel__strip" id="reel0"></div></div>
-          <div class="reel" data-reel="1"><div class="reel__strip" id="reel1"></div></div>
-          <div class="reel" data-reel="2"><div class="reel__strip" id="reel2"></div></div>
+        <div class="slot-glow" id="slotGlow"></div>
 
+        <div class="slot-machine">
+          <div class="reel"><div class="strip" id="reel0"></div></div>
+          <div class="reel"><div class="strip" id="reel1"></div></div>
+          <div class="reel"><div class="strip" id="reel2"></div></div>
           <div class="payline"></div>
-          <div class="slot-glow" id="slotGlow"></div>
-        </div>
-
-        <div class="row2" style="grid-template-columns: 1fr 1fr; margin-top:12px">
-          <button class="btn btn--primary" id="btnSlotSpin">Spin</button>
-          <button class="btn btn--secondary" id="btnAuto">Auto</button>
         </div>
 
         <div class="result" id="slotComment"></div>
 
         <div class="drop" id="drop" hidden>
-          <div class="drop__title" id="dropTitle"></div>
+          <div class="drop__title" id="dropTitle">Drop</div>
           <div class="drop__sub" id="dropSub"></div>
         </div>
 
         <div class="divider"></div>
-
         <div class="card__title" id="ttlHistory">History</div>
-        <div class="history" id="slotHistory"></div>
+        <div class="list" id="slotHistory"></div>
       </section>
-    </main>
 
-    <footer class="footer">
-      <div class="footer__text mono" id="footerText"></div>
-    </footer>
+      <div class="hint" id="hint"></div>
+    </main>
   </div>
 </body>
 </html>

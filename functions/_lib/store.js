@@ -16,14 +16,21 @@ export async function getOrCreatePlayer(env, userId, username) {
     p = {
       user_id: userId,
       username: username || `user${userId}`,
+
+      // RPG/slot state
       avatar_id: "char|str=1|def=1|int=1|luck=1",
       coins: 150,
       level: 1,
       xp: 0,
+
+      // meta/rating
+      glory: 0,
+
+      // slot meta
       free_spins: 0,
-      meter: 0,
-      bonus_until: 0,
-      last_spin_ts: 0,
+      meter: 0,           // 0..10
+      bonus_until: 0,     // timestamp ms
+      last_spin_ts: 0
     };
     await env.PROB_KV.put(key, JSON.stringify(p));
     return p;
@@ -34,10 +41,7 @@ export async function getOrCreatePlayer(env, userId, username) {
   if (p.meter == null) p.meter = 0;
   if (p.bonus_until == null) p.bonus_until = 0;
   if (p.last_spin_ts == null) p.last_spin_ts = 0;
-  if (p.avatar_id == null) p.avatar_id = "char|str=1|def=1|int=1|luck=1";
-  if (p.coins == null) p.coins = 150;
-  if (p.level == null) p.level = 1;
-  if (p.xp == null) p.xp = 0;
+  if (p.glory == null) p.glory = 0;
 
   if (username && p.username !== username) {
     p.username = username;
@@ -92,15 +96,17 @@ export async function createDuel(env, fromId, toId, stake) {
   if (![10, 25, 50].includes(stake)) throw new Error("Bad stake");
 
   const duelId = randId();
+  const seed = Math.floor(Math.random() * 1e9);
 
   const duel = {
     duel_id: duelId,
     from: fromId,
     to: toId,
     stake,
+    seed,
     created_ts: Date.now(),
     resolved: false,
-    winner: null,
+    winner: null
   };
 
   await env.PROB_KV.put(duelKey(duelId), JSON.stringify(duel));
@@ -112,21 +118,13 @@ export async function getDuel(env, duelId) {
 }
 
 export async function listDuelsForUser(env, userId, limit = 30) {
+  const it = await env.PROB_KV.list({ prefix: "duel:" });
   const duels = [];
-  let cursor = undefined;
 
-  while (duels.length < limit) {
-    const page = await env.PROB_KV.list({ prefix: "duel:", cursor });
-    cursor = page.cursor;
-
-    for (const k of page.keys) {
-      const d = await env.PROB_KV.get(k.name, "json");
-      if (!d) continue;
-      if (d.from === userId || d.to === userId) duels.push(d);
-      if (duels.length >= limit) break;
-    }
-
-    if (!cursor) break;
+  for (const k of it.keys) {
+    const d = await env.PROB_KV.get(k.name, "json");
+    if (!d) continue;
+    if (d.from === userId || d.to === userId) duels.push(d);
   }
 
   duels.sort((a, b) => (b.created_ts || 0) - (a.created_ts || 0));

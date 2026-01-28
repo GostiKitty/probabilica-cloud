@@ -230,3 +230,36 @@ body{
 .drop__title{font-size:13px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted)}
 .drop__sub{margin-top:6px; font-size:14px}
 
+/* --- PvE enemy bar --- */
+.enemybar{
+  margin-top:10px;
+  height:10px;
+  border-radius:999px;
+  background: rgba(255,255,255,0.06);
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,0.10);
+}
+.enemybar__fill{
+  height:100%;
+  width:100%;
+  border-radius:999px;
+  background: rgba(255,255,255,0.22);
+  transition: width 260ms ease;
+}
+
+/* --- micro animations (minimal, no circus) --- */
+@keyframes shake {
+  0%{ transform: translateX(0); }
+  20%{ transform: translateX(-2px); }
+  40%{ transform: translateX(3px); }
+  60%{ transform: translateX(-2px); }
+  80%{ transform: translateX(2px); }
+  100%{ transform: translateX(0); }
+}
+@keyframes pop {
+  0%{ transform: scale(1); }
+  40%{ transform: scale(1.03); }
+  100%{ transform: scale(1); }
+}
+.is-shake{ animation: shake 240ms ease; }
+.is-pop{ animation: pop 220ms ease; }
