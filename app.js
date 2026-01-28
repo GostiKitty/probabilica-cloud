@@ -1,6 +1,5 @@
 const tg = window.Telegram?.WebApp;
 
-/* -------- Telegram UI -------- */
 function initTelegramUi() {
   if (!tg) return;
   try {
@@ -10,28 +9,35 @@ function initTelegramUi() {
     tg.setBackgroundColor?.("#0A0A0A");
   } catch {}
 }
+
 function initData() {
   return tg?.initData || "";
 }
-function haptic(type) {
-  try { tg?.HapticFeedback?.impactOccurred?.(type); } catch {}
+
+function haptic(type = "light") {
+  try {
+    tg?.HapticFeedback?.impactOccurred?.(type);
+  } catch {}
 }
 
-/* -------- API -------- */
 async function api(path, body) {
   const res = await fetch(path, {
     method: body ? "POST" : "GET",
-    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       "X-Telegram-InitData": initData(),
     },
+    cache: "no-store",
     body: body ? JSON.stringify(body) : undefined,
   });
 
   const text = await res.text();
   let data;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
+  }
 
   if (!res.ok) {
     const msg = data?.detail || data?.error || `HTTP ${res.status}`;
@@ -57,6 +63,8 @@ const I18N = {
     pvp: "PvP",
     add: "Добавить",
     duels: "Дуэли",
+    settings: "Настройки",
+    language: "Язык",
     challenge: "Вызвать",
     accept: "Принять",
     slotSpin: "Крутить",
@@ -80,21 +88,23 @@ const I18N = {
     pvp: "PvP",
     add: "Add",
     duels: "Duels",
+    settings: "Settings",
+    language: "Language",
     challenge: "Challenge",
     accept: "Accept",
     slotSpin: "Spin",
     slotAuto: "Auto",
-    free: "Free spins",
+    free: "Free",
     meter: "Meter",
     history: "History",
   },
   cn: {
     lobby: "大厅",
-    coins: "金币",
+    coins: "硬币",
     level: "等级",
     xp: "经验",
     glory: "Glory",
-    friendCode: "Friend code",
+    friendCode: "好友码",
     copy: "复制",
     fight: "战斗",
     friends: "好友",
@@ -102,69 +112,52 @@ const I18N = {
     pve: "PvE",
     pvp: "PvP",
     add: "添加",
-    duels: "对决",
+    duels: "决斗",
+    settings: "设置",
+    language: "语言",
     challenge: "挑战",
     accept: "接受",
     slotSpin: "旋转",
     slotAuto: "自动",
-    free: "免费旋转",
+    free: "免费",
     meter: "进度",
     history: "记录",
-  }
+  },
 };
+
+let LANG = localStorage.getItem("lang") || "ru";
+if (!I18N[LANG]) LANG = "ru";
+
+function t(key) {
+  return (I18N[LANG] && I18N[LANG][key]) || key;
+}
+
+/* -------- spicy -------- */
+let spicy = localStorage.getItem("spicy") === "1";
+
 const JOKES = {
   ru: {
-    pve_btn: [
-      "Пойти разбираться",
-      "Сделать больно",
-      "Вызвать на разговор",
-      "Нажать и не думать",
-    ],
-    pve_btn_spicy: [
-      "Пошли, нах*й, на бой",
-      "Дай ему по щам",
-      "Сейчас будет разбор",
-      "Давай быстро и жёстко",
-    ],
-    pve_win: [
-      "Чисто. Без лишних движений.",
-      "Убедительно.",
-      "Вынесла. Дальше.",
-      "Он понял намёк.",
-    ],
-    pve_win_spicy: [
-      "Размотала. Красиво.",
-      "Выдала по фактам, без соплей.",
-      "Это было… избыточно. Мне нравится.",
-      "Он сам виноват, честно.",
-    ],
-    pve_lose: [
-      "Не зашло.",
-      "Мимо. Пересоберись.",
-      "Сегодня не твой матч.",
-      "Он оказался неприятным.",
-    ],
-    pve_lose_spicy: [
-      "Тебя аккуратно приземлили.",
-      "Ну… бывает. Давай ещё раз, без позора.",
-      "Это был щелчок по самолюбию, да.",
-      "Окей. Сейчас соберёмся и разнесём.",
-    ],
-    stake_label: (s) => `Ставка ${s}`,
-    pve_reward: ({dc, xp, g}) => `${dc>0?"+":""}${dc} coins • +${xp} xp • ${g>0?"+":""}${g} glory`,
+    pve_btn: ["Разобраться", "Нажать и забыть", "Выйти поговорить", "Тихо сделать дело"],
+    pve_btn_spicy: ["Дай по щам", "Пошли разносить", "Сейчас будет разбор", "Давай жёстко"],
+    pve_win: ["Чисто.", "Убедительно.", "Он понял.", "Красиво."],
+    pve_win_spicy: ["Размотала. Красиво.", "По фактам.", "Слишком хорошо.", "Он сам напросился."],
+    pve_lose: ["Мимо.", "Не сегодня.", "Пересоберись.", "Сухо."],
+    pve_lose_spicy: ["Тебя приземлили.", "Окей. Ещё раз, без позора.", "Щелчок по самолюбию.", "Соберись и вынеси."],
+    daily: (c, g) => `Дневной бонус +${c} coins • +${g} glory`,
+    reward: (dc, xp, g) => `${dc > 0 ? "+" : ""}${dc} coins • +${xp} xp • ${g > 0 ? "+" : ""}${g} glory`,
+    notEnough: "Недостаточно монет.",
   },
-
   en: {
-    pve_btn: ["Fight", "Proceed", "Do it", "Take the duel"],
-    pve_btn_spicy: ["Send it", "Make it hurt", "No mercy", "Proceed. Hard."],
-    pve_win: ["Clean.", "Convincing.", "Nice.", "Approved."],
+    pve_btn: ["Fight", "Proceed", "Do it", "Take it"],
+    pve_btn_spicy: ["Send it", "No mercy", "Proceed. Hard.", "Make it hurt"],
+    pve_win: ["Clean.", "Approved.", "Nice.", "Convincing."],
     pve_win_spicy: ["Absolutely cooked.", "That was personal.", "Brutal. Good.", "They learned."],
     pve_lose: ["Nope.", "Not today.", "Reset.", "Try again."],
     pve_lose_spicy: ["You got checked.", "That stung.", "Again. Properly.", "We’re not done."],
-    stake_label: (s) => `Stake ${s}`,
-    pve_reward: ({dc, xp, g}) => `${dc>0?"+":""}${dc} coins • +${xp} xp • ${g>0?"+":""}${g} glory`,
+    daily: (c, g) => `Daily bonus +${c} coins • +${g} glory`,
+    reward: (dc, xp, g) => `${dc > 0 ? "+" : ""}${dc} coins • +${xp} xp • ${g > 0 ? "+" : ""}${g} glory`,
+    notEnough: "Not enough coins.",
   },
-
   cn: {
     pve_btn: ["开打", "战斗", "上", "开始"],
     pve_btn_spicy: ["狠狠干", "来真的", "不讲理", "动手"],
@@ -172,12 +165,15 @@ const JOKES = {
     pve_win_spicy: ["直接打穿。", "太狠了。", "很猛。", "他学会了。"],
     pve_lose: ["没事。", "再来。", "不急。", "重开。"],
     pve_lose_spicy: ["被教育了。", "有点痛。", "再狠狠干一次。", "这把不算。"],
-    stake_label: (s) => `下注 ${s}`,
-    pve_reward: ({dc, xp, g}) => `${dc>0?"+":""}${dc} coins • +${xp} xp • ${g>0?"+":""}${g} glory`,
-  }
+    daily: (c, g) => `今日奖励 +${c} coins • +${g} glory`,
+    reward: (dc, xp, g) => `${dc > 0 ? "+" : ""}${dc} coins • +${xp} xp • ${g > 0 ? "+" : ""}${g} glory`,
+    notEnough: "硬币不够。",
+  },
 };
 
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
 function joke(key) {
   const pack = JOKES[LANG] || JOKES.ru;
@@ -185,95 +181,107 @@ function joke(key) {
   return pick(pack[key] || ["—"]);
 }
 
+/* -------- UI -------- */
+const el = (id) => document.getElementById(id);
 
-let LANG = localStorage.getItem("lang") || "ru";
-if (!I18N[LANG]) LANG = "ru";
-
-let spicy = localStorage.getItem("spicy") !== "0"; // по умолчанию да
-function t(k) { return I18N[LANG][k] || I18N.ru[k] || k; }
-
-/* -------- UI refs -------- */
 const ui = {
-  subtitle: document.getElementById("subtitle"),
+  subtitle: el("subtitle"),
+  coins: el("coins"),
+  level: el("level"),
+  xp: el("xp"),
+  glory: el("glory"), // может быть null, если ты не добавляла
+  hint: el("hint"),
 
-  coins: document.getElementById("coins"),
-  level: document.getElementById("level"),
-  xp: document.getElementById("xp"),
-  glory: document.getElementById("glory"),
-  friendCode: document.getElementById("friendCode"),
-  btnCopy: document.getElementById("btnCopy"),
+  friendCode: el("friendCode"),
+  btnCopyCode: el("btnCopyCode"),
 
-  btnLang: document.getElementById("btnLang"),
-  btnSpicy: document.getElementById("btnSpicy"),
+  btnRefresh: el("btnRefresh"),
+  btnSettings: el("btnSettings"),
 
-  tabFight: document.getElementById("tabFight"),
-  tabFriends: document.getElementById("tabFriends"),
-  tabSlot: document.getElementById("tabSlot"),
+  // tabs
+  tabs: [...document.querySelectorAll(".tab")],
+  panels: [...document.querySelectorAll("[data-panel]")],
 
-  panels: Array.from(document.querySelectorAll("[data-panel]")),
+  // labels
+  lblCoins: el("lblCoins"),
+  lblLevel: el("lblLevel"),
+  lblXp: el("lblXp"),
+  lblGlory: el("lblGlory"), // может быть null
+  lblFriendCode: el("lblFriendCode"),
 
-  ttlPve: document.getElementById("ttlPve"),
-  ttlPvp: document.getElementById("ttlPvp"),
-  ttlFriends: document.getElementById("ttlFriends"),
-  ttlSlot: document.getElementById("ttlSlot"),
-  ttlHistory: document.getElementById("ttlHistory"),
+  tabFight: el("tabFight"),
+  tabFriends: el("tabFriends"),
+  tabSlot: el("tabSlot"),
 
-  lblCoins: document.getElementById("lblCoins"),
-  lblLevel: document.getElementById("lblLevel"),
-  lblXp: document.getElementById("lblXp"),
-  lblGlory: document.getElementById("lblGlory"),
-  lblFriendCode: document.getElementById("lblFriendCode"),
+  // fight
+  enemyName: el("enemyName"),
+  enemySub: el("enemySub"),
+  enemyCard: el("enemyCard"), // если есть
+  enemyHp: el("enemyHp"),     // если есть
+  stakes: [...document.querySelectorAll(".stake")],
+  btnPveFight: el("btnPveFight"),
+  fightLog: el("fightLog"),
 
-  btnPveFight: document.getElementById("btnPveFight"),
-  fightLog: document.getElementById("fightLog"),
+  // PvP
+  pvpToId: el("pvpToId"),
+  pvpStake: el("pvpStake"),
+  btnCreateDuel: el("btnCreateDuel"),
+  duelLog: el("duelLog"),
 
-  enemyCard: document.getElementById("enemyCard"),
-  enemyName: document.getElementById("enemyName"),
-  enemySub: document.getElementById("enemySub"),
-  enemyHp: document.getElementById("enemyHp"),
+  // friends
+  friendIdInput: el("friendIdInput"),
+  btnAddFriend: el("btnAddFriend"),
+  friendsList: el("friendsList"),
+  duelsList: el("duelsList"),
 
-  friends: document.getElementById("friends"),
-  friendInput: document.getElementById("friendInput"),
-  btnAddFriend: document.getElementById("btnAddFriend"),
+  // settings modal
+  settingsModal: el("settingsModal"),
+  settingsBackdrop: el("settingsBackdrop"),
+  settingsClose: el("settingsClose"),
+  settingsOk: el("settingsOk"),
+  ttlSettings: el("ttlSettings"),
+  lblLang: el("lblLang"),
+  langBtns: [...document.querySelectorAll(".lang")],
 
-  duels: document.getElementById("duels"),
-  pvpToId: document.getElementById("pvpToId"),
-  pvpStake: document.getElementById("pvpStake"),
-  btnCreateDuel: document.getElementById("btnCreateDuel"),
-  duelLog: document.getElementById("duelLog"),
-  btnRefreshDuels: document.getElementById("btnRefreshDuels"),
-  btnPvpOpen: document.getElementById("btnPvpOpen"),
-  pvpStatus: document.getElementById("pvpStatus"),
+  // titles
+  ttlPve: el("ttlPve"),
+  ttlPvp: el("ttlPvp"),
+  ttlFriends: el("ttlFriends"),
+  ttlDuels: el("ttlDuels"),
 
   // slot
-  freeSpins: document.getElementById("freeSpins"),
-  meter: document.getElementById("meter"),
-  lblFree: document.getElementById("lblFree"),
-  lblMeter: document.getElementById("lblMeter"),
-
-  reel0: document.getElementById("reel0"),
-  reel1: document.getElementById("reel1"),
-  reel2: document.getElementById("reel2"),
+  ttlSlot: el("ttlSlot"),
+  lblFree: el("lblFree"),
+  lblMeter: el("lblMeter"),
+  freeSpins: el("freeSpins"),
+  meter: el("meter"),
+  btnSlotSpin: el("btnSlotSpin"),
+  btnAuto: el("btnAuto"),
+  reel0: el("reel0"),
+  reel1: el("reel1"),
+  reel2: el("reel2"),
+  slotComment: el("slotComment"),
+  slotHistory: el("slotHistory"),
+  slotGlow: el("slotGlow"),
+  ttlHistory: el("ttlHistory"),
   payline: document.querySelector(".payline"),
-  slotGlow: document.getElementById("slotGlow"),
-  btnSlotSpin: document.getElementById("btnSlotSpin"),
-  btnAuto: document.getElementById("btnAuto"),
-  slotComment: document.getElementById("slotComment"),
-  slotHistory: document.getElementById("slotHistory"),
+  drop: el("drop"),
+  dropTitle: el("dropTitle"),
+  dropSub: el("dropSub"),
 
-  drop: document.getElementById("drop"),
-  dropTitle: document.getElementById("dropTitle"),
-  dropSub: document.getElementById("dropSub"),
+  // spicy toggle (может быть)
+  btnSpicy: el("btnSpicy"),
 
-  hint: document.getElementById("hint"),
-  toast: document.getElementById("toast"),
-
+  // toast (может быть)
+  toast: el("toast"),
 };
 
 function setHint(text) {
   if (!ui.hint) return;
   ui.hint.textContent = text || "";
 }
+
+/* -------- toast + punch -------- */
 let toastTimer = null;
 
 function toast(text, type = "info") {
@@ -287,131 +295,215 @@ function toast(text, type = "info") {
   if (type === "win") ui.toast.classList.add("is-win");
   if (type === "bad") ui.toast.classList.add("is-bad");
 
-  // reflow
   ui.toast.getBoundingClientRect();
   ui.toast.classList.add("is-show");
 
   toastTimer = setTimeout(() => {
     ui.toast.classList.remove("is-show");
-    setTimeout(() => { ui.toast.hidden = true; }, 220);
+    setTimeout(() => (ui.toast.hidden = true), 220);
   }, 1400);
 }
 
-function punch(el) {
-  if (!el) return;
-  el.classList.remove("is-punch");
-  el.getBoundingClientRect();
-  el.classList.add("is-punch");
+function punch(node) {
+  if (!node) return;
+  node.classList.remove("is-punch");
+  node.getBoundingClientRect();
+  node.classList.add("is-punch");
 }
 
-
-/* -------- Tabs -------- */
-function showTab(name) {
-  ui.panels.forEach(p => p.hidden = (p.dataset.panel !== name));
-  [ui.tabFight, ui.tabFriends, ui.tabSlot].forEach(btn => btn.classList.remove("is-active"));
-  if (name === "fight") ui.tabFight.classList.add("is-active");
-  if (name === "friends") ui.tabFriends.classList.add("is-active");
-  if (name === "slot") ui.tabSlot.classList.add("is-active");
-}
-ui.tabFight.addEventListener("click", () => showTab("fight"));
-ui.tabFriends.addEventListener("click", () => showTab("friends"));
-ui.tabSlot.addEventListener("click", () => showTab("slot"));
-
-/* -------- Language + spicy -------- */
-function renderStaticText() {
-  ui.lblCoins.textContent = t("coins");
-  ui.lblLevel.textContent = t("level");
-  ui.lblXp.textContent = t("xp");
-  ui.lblGlory.textContent = t("glory");
-  ui.lblFriendCode.textContent = t("friendCode");
-  ui.btnCopy.textContent = t("copy");
-  ui.tabFight.textContent = t("fight");
-  ui.tabFriends.textContent = t("friends");
-  ui.tabSlot.textContent = t("slot");
-  ui.btnPveFight.textContent = joke("pve_btn");
-
-
-  ui.ttlPve.textContent = t("pve");
-  ui.ttlPvp.textContent = t("pvp");
-  ui.ttlFriends.textContent = t("friends");
-  ui.ttlSlot.textContent = t("slot");
-  ui.ttlHistory.textContent = t("history");
-
-  ui.lblFree.textContent = t("free");
-  ui.lblMeter.textContent = t("meter");
-
-  ui.btnAddFriend.textContent = t("add");
-  ui.btnCreateDuel.textContent = t("challenge");
-  ui.btnRefreshDuels.textContent = "Refresh";
-
-  ui.btnLang.textContent = LANG.toUpperCase();
-  ui.btnSpicy.textContent = spicy ? "On" : "Off";
-
-  ui.btnPveFight.textContent = fightButtonLabel();
+/* -------- tabs -------- */
+function showTab(tabName) {
+  ui.tabs.forEach((b) => b.classList.toggle("is-active", b.dataset.tab === tabName));
+  ui.panels.forEach((p) => (p.hidden = p.dataset.panel !== tabName));
+  setHint("");
 }
 
-function fightButtonLabel() {
-  if (LANG === "cn") return spicy ? "动手" : "战斗";
-  if (LANG === "en") return spicy ? "Proceed." : "Fight";
-  // ru
-  return spicy ? "Жми." : "Бой";
+ui.tabs.forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+/* -------- render labels -------- */
+function renderUiText() {
+  if (ui.subtitle) ui.subtitle.textContent = t("lobby");
+
+  if (ui.lblCoins) ui.lblCoins.textContent = t("coins");
+  if (ui.lblLevel) ui.lblLevel.textContent = t("level");
+  if (ui.lblXp) ui.lblXp.textContent = t("xp");
+  if (ui.lblGlory) ui.lblGlory.textContent = t("glory");
+  if (ui.lblFriendCode) ui.lblFriendCode.textContent = t("friendCode");
+  if (ui.btnCopyCode) ui.btnCopyCode.textContent = t("copy");
+
+  if (ui.tabFight) ui.tabFight.textContent = t("fight");
+  if (ui.tabFriends) ui.tabFriends.textContent = t("friends");
+  if (ui.tabSlot) ui.tabSlot.textContent = t("slot");
+
+  if (ui.ttlPve) ui.ttlPve.textContent = t("pve");
+  if (ui.ttlPvp) ui.ttlPvp.textContent = t("pvp");
+  if (ui.ttlFriends) ui.ttlFriends.textContent = t("friends");
+  if (ui.ttlDuels) ui.ttlDuels.textContent = t("duels");
+  if (ui.ttlSlot) ui.ttlSlot.textContent = t("slot");
+  if (ui.ttlHistory) ui.ttlHistory.textContent = t("history");
+
+  if (ui.lblFree) ui.lblFree.textContent = t("free");
+  if (ui.lblMeter) ui.lblMeter.textContent = t("meter");
+
+  if (ui.btnAddFriend) ui.btnAddFriend.textContent = t("add");
+  if (ui.btnCreateDuel) ui.btnCreateDuel.textContent = t("challenge");
+  if (ui.btnSlotSpin) ui.btnSlotSpin.textContent = t("slotSpin");
+  if (ui.btnAuto) ui.btnAuto.textContent = t("slotAuto");
+
+  if (ui.btnPveFight) ui.btnPveFight.textContent = joke("pve_btn");
+
+  if (ui.btnSpicy) ui.btnSpicy.textContent = spicy ? "On" : "Off";
 }
 
-ui.btnLang.addEventListener("click", () => {
-  LANG = (LANG === "ru") ? "en" : (LANG === "en") ? "cn" : "ru";
+function applyLang(newLang) {
+  LANG = newLang;
   localStorage.setItem("lang", LANG);
-  renderStaticText();
-  // перерисуем enemy sub
-  if (enemy) renderEnemy(enemy);
+  renderUiText();
+  renderEnemy();
+}
+
+/* -------- settings modal (language) -------- */
+function openSettings() {
+  if (!ui.settingsModal || !ui.settingsBackdrop) return;
+  ui.settingsBackdrop.hidden = false;
+  ui.settingsModal.hidden = false;
+}
+
+function closeSettings() {
+  if (!ui.settingsModal || !ui.settingsBackdrop) return;
+  ui.settingsModal.hidden = true;
+  ui.settingsBackdrop.hidden = true;
+}
+
+if (ui.btnSettings) ui.btnSettings.addEventListener("click", openSettings);
+if (ui.settingsClose) ui.settingsClose.addEventListener("click", closeSettings);
+if (ui.settingsBackdrop) ui.settingsBackdrop.addEventListener("click", closeSettings);
+
+ui.langBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const lang = btn.dataset.lang;
+    if (!I18N[lang]) return;
+    applyLang(lang);
+    closeSettings();
+  });
 });
 
-ui.btnSpicy.addEventListener("click", () => {
-  spicy = !spicy;
-  localStorage.setItem("spicy", spicy ? "1" : "0");
-  renderStaticText();
-});
+/* -------- spicy toggle -------- */
+if (ui.btnSpicy) {
+  ui.btnSpicy.addEventListener("click", () => {
+    spicy = !spicy;
+    localStorage.setItem("spicy", spicy ? "1" : "0");
+    renderUiText();
+    toast(spicy ? "On." : "Off.");
+  });
+}
 
-ui.btnCopy.addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(String(ME?.user_id || ""));
-    haptic("light");
-    setHint(LANG === "cn" ? "复制了。" : LANG === "en" ? "Copied." : "Скопировано.");
-    setTimeout(() => setHint(""), 900);
-  } catch {
-    setHint("Copy failed");
-  }
-});
-
-/* -------- Profile -------- */
+/* -------- state -------- */
 let ME = null;
 
-function setSlotMetaFromProfile(p) {
-  ui.freeSpins.textContent = String(p.free_spins ?? 0);
-  ui.meter.textContent = String(p.meter ?? 0);
+/* -------- enemies (frontend cosmetic list) -------- */
+const ENEMIES = [
+  { id: "electro_ded", ru: "ЭлектроДед", en: "Electro Grandpa", cn: "电爷",
+    sub_ru: "Пахнет озоном и уверенностью.", sub_en: "Smells like ozone and confidence.", sub_cn: "一股自信的臭氧味。" },
+  { id: "axisless_graph", ru: "График Без Оси", en: "Axisless Graph", cn: "没坐标的图",
+    sub_ru: "Пугает преподавателей.", sub_en: "Terrifies instructors.", sub_cn: "老师看了沉默。" },
+  { id: "seedless_rng", ru: "Рандом без seed", en: "Seedless RNG", cn: "无种随机",
+    sub_ru: "Нечестный, но официальный.", sub_en: "Unfair, yet official.", sub_cn: "不讲道理但合规。" },
+  { id: "latex_error", ru: "Синтаксис в LaTeX", en: "LaTeX Error", cn: "LaTeX 报错",
+    sub_ru: "Съедает время.", sub_en: "Consumes time.", sub_cn: "吞时间。" },
+  { id: "deadline", ru: "Дедлайн", en: "Deadline", cn: "截止日期",
+    sub_ru: "Он всегда быстрее.", sub_en: "Always faster than you.", sub_cn: "永远更快。" },
+];
+
+let currentEnemy = ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
+let currentStake = 25;
+
+function renderEnemy() {
+  if (!ui.enemyName) return;
+  const e = currentEnemy;
+  const name = LANG === "cn" ? e.cn : LANG === "en" ? e.en : e.ru;
+  const sub = LANG === "cn" ? e.sub_cn : LANG === "en" ? e.sub_en : e.sub_ru;
+
+  ui.enemyName.textContent = name;
+  if (ui.enemySub) ui.enemySub.textContent = sub;
 }
 
+function pickEnemy() {
+  currentEnemy = ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
+  renderEnemy();
+  if (ui.enemyHp) ui.enemyHp.style.width = "100%";
+}
+
+ui.stakes.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    ui.stakes.forEach((b) => b.classList.remove("btn--primary"));
+    btn.classList.add("btn--primary");
+    currentStake = Number(btn.dataset.stake || 25);
+    haptic("light");
+    toast((LANG === "ru" ? `Ставка ${currentStake}` : LANG === "cn" ? `下注 ${currentStake}` : `Stake ${currentStake}`));
+  });
+});
+
+// default highlight stake 25 if exists
+ui.stakes.forEach((btn) => {
+  if (String(btn.dataset.stake) === "25") btn.classList.add("btn--primary");
+});
+
+/* -------- profile -------- */
 async function loadMe() {
   const p = await api("/api/me");
   ME = p;
-  ui.coins.textContent = String(ME.coins ?? 0);
-  ui.level.textContent = String(ME.level ?? 1);
-  ui.xp.textContent = String(ME.xp ?? 0);
-  ui.glory.textContent = String(ME.glory ?? 0);
-  ui.friendCode.textContent = String(ME.user_id || "");
-  setSlotMetaFromProfile(ME);
 
-  // remove skeleton class if any (safe)
-  [ui.coins, ui.level, ui.xp].forEach(el => el?.classList?.remove?.("skeleton"));
+  if (ui.coins) ui.coins.textContent = String(p.coins ?? 0);
+  if (ui.level) ui.level.textContent = String(p.level ?? 1);
+  if (ui.xp) ui.xp.textContent = String(p.xp ?? 0);
+  if (ui.glory) ui.glory.textContent = String(p.glory ?? 0);
+
+  if (ui.friendCode) ui.friendCode.textContent = String(p.user_id || "");
+  if (ui.freeSpins) ui.freeSpins.textContent = String(p.free_spins ?? 0);
+  if (ui.meter) ui.meter.textContent = String(p.meter ?? 0);
 }
 
-/* -------- Friends -------- */
+if (ui.btnRefresh) {
+  ui.btnRefresh.addEventListener("click", async () => {
+    ui.btnRefresh.disabled = true;
+    try {
+      await loadMe();
+      await loadFriends();
+      await loadDuels();
+      toast(LANG === "ru" ? "Обновлено." : LANG === "cn" ? "刷新了。" : "Updated.");
+    } catch (e) {
+      setHint(e.message || "Error");
+    } finally {
+      ui.btnRefresh.disabled = false;
+    }
+  });
+}
+
+if (ui.btnCopyCode) {
+  ui.btnCopyCode.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(String(ME?.user_id || ""));
+      haptic("light");
+      toast(LANG === "ru" ? "Скопировано." : LANG === "cn" ? "复制了。" : "Copied.");
+    } catch {
+      toast("Copy failed", "bad");
+    }
+  });
+}
+
+/* -------- friends -------- */
 async function loadFriends() {
   const r = await api("/api/friends");
   const ids = r.friends || [];
-  ui.friends.innerHTML = "";
 
-  if (!ids.length) {
-    ui.friends.innerHTML = `<div class="result">${LANG === "cn" ? "还没有好友。" : LANG === "en" ? "No friends yet." : "Пока пусто. Добавь друга по friend id."}</div>`;
+  if (!ui.friendsList) return;
+
+  ui.friendsList.innerHTML = "";
+  if (ids.length === 0) {
+    ui.friendsList.innerHTML = `<div class="result">${
+      LANG === "ru" ? "Пока пусто. Добавь друга по id." : LANG === "cn" ? "还没有好友。" : "No friends yet."
+    }</div>`;
     return;
   }
 
@@ -421,241 +513,199 @@ async function loadFriends() {
     row.innerHTML = `
       <div class="item__main">
         <div class="item__title">${id}</div>
-        <div class="item__sub">${LANG === "cn" ? "好友" : "friend"}</div>
+        <div class="item__sub">${LANG === "ru" ? "друг" : LANG === "cn" ? "好友" : "friend"}</div>
       </div>
-      <button class="mini-btn duelBtn">${t("challenge")}</button>
+      <button class="mini-btn">${t("challenge")}</button>
     `;
-    row.querySelector(".duelBtn").addEventListener("click", () => {
-      ui.pvpToId.value = String(id);
+    row.querySelector("button").addEventListener("click", () => {
+      if (ui.pvpToId) ui.pvpToId.value = String(id);
       showTab("fight");
-      ui.duelLog.textContent = "";
       haptic("light");
     });
-    ui.friends.appendChild(row);
+    ui.friendsList.appendChild(row);
   }
 }
 
-ui.btnAddFriend.addEventListener("click", async () => {
-  const friend_id = ui.friendInput.value.trim();
-  if (!friend_id) return;
+if (ui.btnAddFriend) {
+  ui.btnAddFriend.addEventListener("click", async () => {
+    const friend_id = ui.friendIdInput?.value?.trim();
+    if (!friend_id) return;
 
-  ui.btnAddFriend.disabled = true;
-  try {
-    await api("/api/friends", { friend_id });
-    ui.friendInput.value = "";
-    haptic("light");
-    await loadFriends();
-    setHint(LANG === "cn" ? "完成。" : LANG === "en" ? "Done." : "Готово.");
-    setTimeout(() => setHint(""), 900);
-  } catch (e) {
-    setHint(e.message || "Error");
-  } finally {
-    ui.btnAddFriend.disabled = false;
-  }
-});
+    ui.btnAddFriend.disabled = true;
+    try {
+      await api("/api/friends", { friend_id });
+      if (ui.friendIdInput) ui.friendIdInput.value = "";
+      await loadFriends();
+      toast(LANG === "ru" ? "Готово." : LANG === "cn" ? "完成。" : "Done.", "win");
+    } catch (e) {
+      toast(e.message || "Error", "bad");
+    } finally {
+      ui.btnAddFriend.disabled = false;
+    }
+  });
+}
 
-/* -------- Duels -------- */
+/* -------- duels -------- */
 async function loadDuels() {
-  const data = await api("/api/duels");
-  ui.duels.innerHTML = "";
+  const r = await api("/api/duels");
+  const duels = r.duels || [];
 
-  const list = data.duels || [];
-  ui.pvpStatus.textContent = list.length ? `${list.length}` : "—";
+  if (!ui.duelsList) return;
 
-  for (const d of list) {
+  ui.duelsList.innerHTML = "";
+
+  if (duels.length === 0) {
+    ui.duelsList.innerHTML = `<div class="result">${
+      LANG === "ru" ? "Дуэлей пока нет." : LANG === "cn" ? "还没有决斗。" : "No duels yet."
+    }</div>`;
+    return;
+  }
+
+  for (const d of duels) {
+    const status = d.resolved
+      ? d.winner === (ME?.user_id)
+        ? "WIN"
+        : "LOSE"
+      : "PENDING";
+
     const row = document.createElement("div");
     row.className = "item";
 
-    const title = `#${String(d.duel_id).slice(0, 6)} · stake ${d.stake}`;
-    const sub = d.resolved
-      ? `winner ${d.winner}`
-      : `from ${d.from} → to ${d.to}`;
+    const title = `${d.from} → ${d.to}`;
+    const sub = `${status} • stake ${d.stake} • ${new Date(d.created_ts).toLocaleString()}`;
 
     row.innerHTML = `
       <div class="item__main">
         <div class="item__title">${title}</div>
         <div class="item__sub">${sub}</div>
       </div>
-      ${(!d.resolved && d.to === ME?.user_id)
-        ? `<button class="btn btn--primary" data-action="accept" data-id="${d.duel_id}">${t("accept")}</button>`
-        : `<div class="badge2">${d.resolved ? "RESOLVED" : "OPEN"}</div>`
-      }
+      ${d.resolved ? "" : `<button class="mini-btn resolveBtn">${t("accept")}</button>`}
     `;
-    ui.duels.appendChild(row);
-  }
 
-  ui.duels.querySelectorAll('[data-action="accept"]').forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const duel_id = btn.dataset.id;
-      try {
-        await api("/api/duel_resolve", { duel_id });
-        haptic("medium");
-        await loadMe();
-        await loadDuels();
-      } catch (e) {
-        setHint(e.message);
+    const btn = row.querySelector(".resolveBtn");
+    if (btn) {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          const rr = await api("/api/duel_resolve", { duel_id: d.duel_id });
+          if (ui.duelLog) ui.duelLog.textContent = `Resolved. Winner: ${rr.winner_id}`;
+          toast(LANG === "ru" ? "Принято." : LANG === "cn" ? "已接受。" : "Accepted.", "win");
+          await loadDuels();
+          await loadMe();
+        } catch (e) {
+          if (ui.duelLog) ui.duelLog.textContent = e.message || "Error";
+          toast(e.message || "Error", "bad");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    ui.duelsList.appendChild(row);
+  }
+}
+
+if (ui.btnCreateDuel) {
+  ui.btnCreateDuel.addEventListener("click", async () => {
+    const toId = ui.pvpToId?.value?.trim();
+    const stake = Number(ui.pvpStake?.value || 25);
+    if (!toId) return;
+
+    ui.btnCreateDuel.disabled = true;
+    if (ui.duelLog) ui.duelLog.textContent = LANG === "ru" ? "Создаю вызов…" : LANG === "cn" ? "创建挑战…" : "Creating…";
+
+    try {
+      const r = await api("/api/duel_create", { to_id: Number(toId), stake });
+      if (ui.duelLog) ui.duelLog.textContent =
+        `${LANG === "ru" ? "Вызов создан" : LANG === "cn" ? "挑战已创建" : "Created"}: ${r.duel.duel_id}`;
+      toast(LANG === "ru" ? "Вызов отправлен." : LANG === "cn" ? "已发起挑战。" : "Challenge sent.", "win");
+      await loadDuels();
+    } catch (e) {
+      if (ui.duelLog) ui.duelLog.textContent = e.message || "Error";
+      toast(e.message || "Error", "bad");
+    } finally {
+      ui.btnCreateDuel.disabled = false;
+    }
+  });
+}
+
+/* -------- PvE (SERVER authoritative) -------- */
+if (ui.btnPveFight) {
+  ui.btnPveFight.addEventListener("click", async () => {
+    if (!ME) return;
+
+    const coins = Number(ME.coins ?? 0);
+    if (coins < currentStake) {
+      if (ui.fightLog) ui.fightLog.textContent = (JOKES[LANG] || JOKES.ru).notEnough;
+      toast((JOKES[LANG] || JOKES.ru).notEnough, "bad");
+      return;
+    }
+
+    ui.btnPveFight.disabled = true;
+    if (ui.fightLog) ui.fightLog.textContent = LANG === "ru" ? "Идёт разбор…" : LANG === "cn" ? "处理中…" : "Processing…";
+
+    try {
+      const r = await api("/api/pve", {
+        enemy_id: currentEnemy.id,
+        stake: currentStake,
+        lang: LANG,
+      });
+
+      // обновим профиль
+      if (r.profile) {
+        ME = r.profile;
+        if (ui.coins) ui.coins.textContent = String(ME.coins ?? 0);
+        if (ui.level) ui.level.textContent = String(ME.level ?? 1);
+        if (ui.xp) ui.xp.textContent = String(ME.xp ?? 0);
+        if (ui.glory) ui.glory.textContent = String(ME.glory ?? 0);
       }
-    });
+
+      const res = r.result;
+      const win = !!res.win;
+
+      const line = win ? joke("pve_win") : joke("pve_lose");
+      const pack = JOKES[LANG] || JOKES.ru;
+      const reward = pack.reward(res.deltaCoins, res.gainXp, res.deltaGlory);
+
+      if (ui.fightLog) ui.fightLog.textContent = `${line}\n${reward}`;
+
+      toast(line, win ? "win" : "bad");
+      punch(ui.enemyCard);
+      if (win) punch(ui.coins);
+
+      // daily bonus toast
+      if (r.daily?.triggered) {
+        toast(pack.daily(r.daily.coins, r.daily.glory), "win");
+      }
+
+      // cosmetic HP bar
+      if (ui.enemyHp) {
+        ui.enemyHp.style.width = win ? "0%" : "62%";
+      }
+
+      if (win) {
+        haptic("medium");
+        setTimeout(() => {
+          pickEnemy();
+          if (ui.enemyHp) ui.enemyHp.style.width = "100%";
+        }, 420);
+      } else {
+        haptic("light");
+      }
+    } catch (e) {
+      if (ui.fightLog) ui.fightLog.textContent = e.message || "Error";
+      toast(e.message || "Error", "bad");
+    } finally {
+      ui.btnPveFight.disabled = false;
+      ui.btnPveFight.textContent = joke("pve_btn");
+    }
   });
 }
 
-ui.btnRefreshDuels.addEventListener("click", () => loadDuels().catch(()=>{}));
+/* =========================
+   SLOT FRONTEND
+========================= */
 
-ui.btnCreateDuel.addEventListener("click", async () => {
-  const to_id = ui.pvpToId.value.trim();
-  const stake = Number(ui.pvpStake.value);
-  if (!to_id) return;
-
-  ui.btnCreateDuel.disabled = true;
-  ui.duelLog.textContent = LANG === "cn" ? "创建挑战…" : LANG === "en" ? "Creating…" : "Создаю вызов…";
-  try {
-    const r = await api("/api/duel_create", { to_id: Number(to_id), stake });
-    ui.duelLog.textContent = `${LANG === "cn" ? "已创建" : LANG === "en" ? "Created" : "Вызов создан"}: ${r.duel.duel_id}`;
-    haptic("light");
-    await loadDuels();
-  } catch (e) {
-    ui.duelLog.textContent = e.message || "Error";
-  } finally {
-    ui.btnCreateDuel.disabled = false;
-  }
-});
-
-/* -------- PvE (server-authoritative) -------- */
-let currentStake = 25;
-
-const FRONT_ENEMIES = [
-  { id: "electro_ded", ru: "ЭлектроДед", cn: "电爷", en: "Electro Grandpa", sub_ru: "Пахнет озоном и самоуверенностью.", sub_en: "Smells like ozone and confidence.", sub_cn: "一股自信的臭氧味。"},
-  { id: "axisless_graph", ru: "График Без Оси", cn: "没坐标的图", en: "Axisless Graph", sub_ru: "Пугает преподавателей.", sub_en: "Terrifies instructors.", sub_cn: "老师看了沉默。"},
-  { id: "seedless_rng", ru: "Рандом без seed", cn: "无种随机", en: "Seedless RNG", sub_ru: "Нечестный, но официальный.", sub_en: "Unfair, yet official.", sub_cn: "不讲道理但合规。"},
-  { id: "latex_error", ru: "Синтаксис в LaTeX", cn: "LaTeX 报错", en: "LaTeX Error", sub_ru: "Съедает время.", sub_en: "Consumes time.", sub_cn: "吞时间。"},
-  { id: "deadline", ru: "Дедлайн", cn: "截止日期", en: "Deadline", sub_ru: "Он всегда быстрее.", sub_en: "Always faster than you.", sub_cn: "永远更快。"},
-];
-
-let enemy = FRONT_ENEMIES[Math.floor(Math.random() * FRONT_ENEMIES.length)];
-let enemyHpPct = 100;
-
-function renderEnemy(e) {
-  const name = (LANG === "cn") ? e.cn : (LANG === "en") ? e.en : e.ru;
-  const sub = (LANG === "cn") ? e.sub_cn : (LANG === "en") ? e.sub_en : e.sub_ru;
-  ui.enemyName.textContent = name;
-  ui.enemySub.textContent = sub;
-}
-
-function pickEnemy() {
-  enemy = FRONT_ENEMIES[Math.floor(Math.random() * FRONT_ENEMIES.length)];
-  enemyHpPct = 100;
-  renderEnemy(enemy);
-  ui.enemyHp.style.width = "100%";
-}
-
-document.querySelectorAll(".stake").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".stake").forEach(b => b.classList.remove("btn--primary"));
-    btn.classList.add("btn--primary");
-    currentStake = Number(btn.dataset.stake || 25);
-    haptic("light");
-  });
-});
-
-// выбрать 25 по умолчанию
-document.querySelectorAll(".stake").forEach(btn => {
-  if (btn.dataset.stake === "25") btn.classList.add("btn--primary");
-});
-
-function fightLine(result) {
-  // коротко, стильно, локальный юмор
-  if (!result.win) {
-    if (LANG === "cn") return spicy ? "你被教育了。" : "失败。";
-    if (LANG === "en") return spicy ? "You got corrected." : "Lost.";
-    return spicy ? "Тебя поправили." : "Поражение.";
-  }
-  if (LANG === "cn") return spicy ? "干净利落。" : "胜利。";
-  if (LANG === "en") return spicy ? "Clean." : "Win.";
-  return spicy ? "Чисто." : "Победа.";
-}
-
-function animateHit(win) {
-  ui.enemyCard?.classList.remove("is-shake");
-  ui.enemyCard?.getBoundingClientRect?.();
-  ui.enemyCard?.classList.add("is-shake");
-
-  if (win) {
-    ui.coins?.classList.remove("is-pop");
-    ui.coins?.getBoundingClientRect?.();
-    ui.coins?.classList.add("is-pop");
-  }
-}
-
-ui.btnPveFight.addEventListener("click", async () => {
-  ui.btnPveFight.disabled = true;
-
-  try {
-    const r = await api("/api/pve", { enemy_id: enemy.id, stake: currentStake, lang: LANG });
-
-    const prof = r.profile;
-    if (prof) {
-      ME = prof;
-      ui.coins.textContent = String(ME.coins ?? 0);
-      ui.level.textContent = String(ME.level ?? 1);
-      ui.xp.textContent = String(ME.xp ?? 0);
-      ui.glory.textContent = String(ME.glory ?? 0);
-    }
-
-    const res = r.result;
-    const win = !!res.win;
-
-    // HP bar purely cosmetic: на победе “обнуляем”, иначе уменьшаем
-    enemyHpPct = win ? 0 : Math.max(12, enemyHpPct - 28 - Math.floor(Math.random() * 18));
-    ui.enemyHp.style.width = `${enemyHpPct}%`;
-
-    const line = fightLine(res);
-    const coinsPart = `${res.deltaCoins > 0 ? "+" : ""}${res.deltaCoins} coins`;
-    const xpPart = `+${res.gainXp} xp`;
-    const gloryPart = `${res.deltaGlory > 0 ? "+" : ""}${res.deltaGlory} glory`;
-
-    const res = r.result;
-    const win = !!res.win;
-
-    const line = win ? joke("pve_win") : joke("pve_lose");
-    const reward = (JOKES[LANG] || JOKES.ru).pve_reward({
-      dc: res.deltaCoins,
-      xp: res.gainXp,
-      g: res.deltaGlory
-    });
-
-    ui.fightLog.textContent = `${line}\n${reward}`;
-
-    toast(win ? line : line, win ? "win" : "bad");
-    punch(ui.enemyCard);
-    if (win) punch(ui.coins);
-
-    if (win) {
-      // косметика — бар HP в ноль, потом новый враг
-      ui.enemyHp.style.width = "0%";
-      setTimeout(() => {
-        pickEnemy();
-        ui.enemyHp.style.width = "100%";
-      }, 420);
-    }
-
-
-    animateHit(win);
-
-    if (win) {
-      haptic("medium");
-      setTimeout(() => pickEnemy(), 450);
-    } else {
-      haptic("light");
-    }
-  } catch (e) {
-    setHint(e.message || "Error");
-    haptic("light");
-  } finally {
-    ui.btnPveFight.disabled = false;
-  }
-});
-
-/* -------- SLOT (твой рабочий фронт-спин остаётся) -------- */
 const SYMBOL_LABEL = {
   BAR: "BAR",
   BELL: "BELL",
@@ -666,85 +716,42 @@ const SYMBOL_LABEL = {
   SCATTER: "S",
 };
 
-const ORDER = ["BAR","BELL","SEVEN","CHERRY","STAR","COIN","SCATTER"];
+const ORDER = ["BAR", "BELL", "SEVEN", "CHERRY", "STAR", "COIN", "SCATTER"];
 
 function buildReelStrip(elStrip) {
   const repeats = 40;
   const rows = [];
   for (let i = 0; i < ORDER.length * repeats; i++) rows.push(ORDER[i % ORDER.length]);
-  elStrip.innerHTML = rows.map(s => `<div class="sym sym--${s}"><span>${SYMBOL_LABEL[s]}</span></div>`).join("");
+  elStrip.innerHTML = rows
+    .map((s) => `<div class="sym sym--${s}"><span>${SYMBOL_LABEL[s]}</span></div>`)
+    .join("");
   return rows;
 }
 
-const reelRows0 = buildReelStrip(ui.reel0);
-const reelRows1 = buildReelStrip(ui.reel1);
-const reelRows2 = buildReelStrip(ui.reel2);
+const reelRows0 = ui.reel0 ? buildReelStrip(ui.reel0) : [];
+const reelRows1 = ui.reel1 ? buildReelStrip(ui.reel1) : [];
+const reelRows2 = ui.reel2 ? buildReelStrip(ui.reel2) : [];
 
 function setReelToSymbol(elStrip, rows, symbol, extraTurns = 0) {
   const rowH = 50;
   const idxs = [];
   for (let i = 0; i < rows.length; i++) if (rows[i] === symbol) idxs.push(i);
-  const pick = idxs[Math.floor(Math.random() * idxs.length)];
+  const pickIdx = idxs.length ? idxs[Math.floor(Math.random() * idxs.length)] : 0;
   const centerRow = 1;
-  const base = (pick - centerRow) * rowH;
+  const base = (pickIdx - centerRow) * rowH;
   const turns = extraTurns * rows.length * rowH;
   const y = -(base + turns);
   elStrip.style.transform = `translateY(${y}px)`;
 }
 
-function slotComment(kind) {
-  const RU = {
-    lose: ["Ладно.", "Мимо.", "Сухо."],
-    near: spicy ? ["Ну почти.", "Обидно.", "Так близко."] : ["Почти.", "Рядом.", "Мимо."],
-    win: ["Окей.", "Есть.", "Неплохо."],
-    big: ["Вот.", "Красиво.", "Плотно."],
-    scatter: ["Бонус.", "Фриспины.", "Поехали."],
-    meter: ["Шкала закрыта.", "Фриспины.", "Включилось."],
-    big: spicy
-      ? ["Ого. Это грязно. Мне нравится.", "Разъеб.", "Слишком хорошо.", "Наконец-то нормально."]
-      : ["Вот.", "Красиво.", "Плотно.", "Есть."],
-
-    scatter: spicy
-      ? ["Фриспины. Пошло мясо.", "Окей. Понеслась.", "Бонус. Не дыши."]
-      : ["Бонус.", "Фриспины.", "Поехали."],
-
-  };
-  const EN = {
-    lose: ["No.", "Miss.", "Dry."],
-    near: ["Close.", "Almost.", "So close."],
-    win: ["Ok.", "Win.", "Nice."],
-    big: ["Big.", "Clean.", "That’s a moment."],
-    scatter: ["Bonus.", "Free spins.", "Go."],
-    meter: ["Meter popped.", "Free spins.", "Good."],
-  };
-  const CN = {
-    lose: ["没关系。", "不急。", "今天不行。"],
-    near: ["差一点。", "就差一点。", "太近了。"],
-    win: ["还行。", "不错。", "可以。"],
-    big: ["很猛。", "漂亮。", "大赢。"],
-    scatter: ["进奖励。", "免费旋转。", "开始了。"],
-    meter: ["进度满了。", "给你免费。", "走起。"],
-  };
-  const pack = LANG === "cn" ? CN : LANG === "en" ? EN : RU;
-  const arr = pack[kind] || pack.lose;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function setGlow(kind, bonusUntil) {
-  ui.slotGlow.classList.remove("is-win","is-big","is-bonus");
-  if (kind === "win" || kind === "near") ui.slotGlow.classList.add("is-win");
-  if (kind === "big") ui.slotGlow.classList.add("is-big");
-  if (kind === "scatter") ui.slotGlow.classList.add("is-bonus");
-  if (bonusUntil && bonusUntil > Date.now()) ui.slotGlow.classList.add("is-bonus");
-  ui.payline?.classList.toggle("is-hit", kind === "win" || kind === "big" || kind === "scatter");
-  if (kind === "near") ui.payline?.classList.remove("is-hit");
-}
-
 function pushHistory(spin) {
+  if (!ui.slotHistory) return;
+
   const row = document.createElement("div");
   row.className = "item";
   const sym = spin.symbols.join(" · ");
-  const badge = spin.kind.toUpperCase();
+  const badge = String(spin.kind || "").toUpperCase();
+
   row.innerHTML = `
     <div class="item__main">
       <div class="item__title">${sym}</div>
@@ -752,8 +759,66 @@ function pushHistory(spin) {
     </div>
     <div class="badge2">${badge}</div>
   `;
+
   ui.slotHistory.prepend(row);
   while (ui.slotHistory.children.length > 6) ui.slotHistory.lastChild.remove();
+}
+
+function setGlow(kind, bonusUntil) {
+  if (!ui.slotGlow) return;
+
+  ui.slotGlow.classList.remove("is-win", "is-big", "is-bonus", "is-flash");
+  if (kind === "win" || kind === "near") ui.slotGlow.classList.add("is-win");
+  if (kind === "big") ui.slotGlow.classList.add("is-big");
+  if (kind === "scatter") ui.slotGlow.classList.add("is-bonus");
+  if (bonusUntil && bonusUntil > Date.now()) ui.slotGlow.classList.add("is-bonus");
+
+  if (kind === "win" || kind === "big" || kind === "scatter") {
+    ui.slotGlow.getBoundingClientRect();
+    ui.slotGlow.classList.add("is-flash");
+  }
+
+  if (ui.payline) {
+    ui.payline.classList.toggle("is-hit", kind === "win" || kind === "big" || kind === "scatter");
+    if (kind === "near") ui.payline.classList.remove("is-hit");
+  }
+}
+
+function slotComment(kind) {
+  const RU = {
+    lose: ["Ладно.", "Мимо.", "Сухо."],
+    near: spicy ? ["Ну почти.", "Обидно.", "Так близко."] : ["Почти.", "Рядом.", "Мимо."],
+    win: ["Окей.", "Есть.", "Неплохо."],
+    big: spicy
+      ? ["Ого. Это грязно. Мне нравится.", "Разъ*б.", "Слишком хорошо.", "Наконец-то нормально."]
+      : ["Вот.", "Красиво.", "Плотно.", "Есть."],
+    scatter: spicy
+      ? ["Фриспины. Пошло мясо.", "Окей. Понеслась.", "Бонус. Не дыши."]
+      : ["Бонус.", "Фриспины.", "Поехали."],
+    meter: ["Шкала закрыта.", "Фриспины.", "Включилось."],
+  };
+
+  const EN = {
+    lose: ["No.", "Miss.", "Dry."],
+    near: ["Close.", "Almost.", "So close."],
+    win: ["Ok.", "Win.", "Nice."],
+    big: spicy ? ["That’s nasty. Good.", "Big hit.", "Finally.", "Clean."] : ["Big.", "Nice.", "Good."],
+    scatter: spicy ? ["Bonus. Don’t blink.", "Free spins. Go.", "Now it starts."] : ["Bonus.", "Free spins.", "Go."],
+    meter: ["Meter popped.", "Free spins.", "Good."],
+  };
+
+  const CN = {
+    lose: ["没关系。", "不急。", "今天不行。"],
+    near: ["差一点。", "就差一点。", "太近了。"],
+    win: ["还行。", "不错。", "可以。"],
+    big: spicy ? ["太狠了。", "很猛。", "漂亮。", "终于像话。"] : ["很猛。", "漂亮。", "大赢。"],
+    scatter: spicy ? ["奖励来了。别眨眼。", "免费旋转。走起。", "开始了。"] : ["进奖励。", "免费旋转。", "开始了。"],
+    meter: ["进度满了。", "给你免费。", "走起。"],
+  };
+
+  const pack = LANG === "cn" ? CN : LANG === "en" ? EN : RU;
+  const arr = pack[kind] || pack.lose;
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 let spinningSlot = false;
@@ -762,49 +827,54 @@ let autoMode = localStorage.getItem("auto") === "1";
 function setAuto(v) {
   autoMode = !!v;
   localStorage.setItem("auto", autoMode ? "1" : "0");
-  ui.btnAuto.classList.toggle("btn--primary", autoMode);
-  ui.btnAuto.classList.toggle("btn--secondary", !autoMode);
+  if (ui.btnAuto) {
+    ui.btnAuto.classList.toggle("btn--primary", autoMode);
+    ui.btnAuto.classList.toggle("btn--secondary", !autoMode);
+  }
 }
 
 async function slotSpinOnce() {
   if (spinningSlot) return;
-  spinningSlot = true;
+  if (!ME) return;
 
-  ui.btnSlotSpin.disabled = true;
-  ui.btnAuto.disabled = true;
+  spinningSlot = true;
+  if (ui.btnSlotSpin) ui.btnSlotSpin.disabled = true;
+  if (ui.btnAuto) ui.btnAuto.disabled = true;
 
   let resp;
   try {
     resp = await api("/api/spin", {});
   } catch (e) {
-    ui.slotComment.textContent = e.message || "Error";
-    ui.btnSlotSpin.disabled = false;
-    ui.btnAuto.disabled = false;
+    if (ui.slotComment) ui.slotComment.textContent = e.message || "Error";
+    if (ui.btnSlotSpin) ui.btnSlotSpin.disabled = false;
+    if (ui.btnAuto) ui.btnAuto.disabled = false;
     spinningSlot = false;
     return;
   }
 
   const spin = resp.spin;
   const prof = resp.profile;
+
   if (prof) {
     ME = prof;
-    ui.coins.textContent = String(ME.coins ?? 0);
-    ui.level.textContent = String(ME.level ?? 1);
-    ui.xp.textContent = String(ME.xp ?? 0);
-    ui.glory.textContent = String(ME.glory ?? 0);
-    ui.friendCode.textContent = String(ME.user_id || "");
-    setSlotMetaFromProfile(ME);
+    if (ui.coins) ui.coins.textContent = String(ME.coins ?? 0);
+    if (ui.level) ui.level.textContent = String(ME.level ?? 1);
+    if (ui.xp) ui.xp.textContent = String(ME.xp ?? 0);
+    if (ui.glory) ui.glory.textContent = String(ME.glory ?? 0);
+    if (ui.freeSpins) ui.freeSpins.textContent = String(ME.free_spins ?? 0);
+    if (ui.meter) ui.meter.textContent = String(ME.meter ?? 0);
+    if (ui.friendCode) ui.friendCode.textContent = String(ME.user_id || "");
   }
 
   haptic("light");
 
-  ui.reel0.style.transition = "transform 900ms cubic-bezier(.12,72,11,1)";
-  ui.reel1.style.transition = "transform 1050ms cubic-bezier(.12,72,11,1)";
-  ui.reel2.style.transition = "transform 1200ms cubic-bezier(.12,72,11,1)";
+  if (ui.reel0) ui.reel0.style.transition = "transform 900ms cubic-bezier(.12,.72,.11,1)";
+  if (ui.reel1) ui.reel1.style.transition = "transform 1050ms cubic-bezier(.12,.72,.11,1)";
+  if (ui.reel2) ui.reel2.style.transition = "transform 1200ms cubic-bezier(.12,.72,.11,1)";
 
-  setReelToSymbol(ui.reel0, reelRows0, spin.symbols[0], 3);
-  setReelToSymbol(ui.reel1, reelRows1, spin.symbols[1], 4);
-  setReelToSymbol(ui.reel2, reelRows2, spin.symbols[2], 5);
+  if (ui.reel0) setReelToSymbol(ui.reel0, reelRows0, spin.symbols[0], 3);
+  if (ui.reel1) setReelToSymbol(ui.reel1, reelRows1, spin.symbols[1], 4);
+  if (ui.reel2) setReelToSymbol(ui.reel2, reelRows2, spin.symbols[2], 5);
 
   setTimeout(() => haptic("light"), 900);
   setTimeout(() => haptic("light"), 1050);
@@ -812,27 +882,23 @@ async function slotSpinOnce() {
 
   setTimeout(() => {
     const kind = spin.meter_triggered ? "meter" : spin.kind;
-    ui.slotComment.textContent = slotComment(kind);
 
+    if (ui.slotComment) ui.slotComment.textContent = slotComment(kind);
     setGlow(spin.kind, spin.bonus_until);
-    if (spin.kind === "win" || spin.kind === "big" || spin.kind === "scatter") {
-      ui.slotGlow?.classList.remove("is-flash");
-      ui.slotGlow?.getBoundingClientRect?.();
-      ui.slotGlow?.classList.add("is-flash");
-    }
-
     pushHistory(spin);
 
-    if (spin.drop) {
-      ui.drop.hidden = false;
-      ui.dropTitle.textContent = spin.drop.title || "Drop";
-      ui.dropSub.textContent = spin.drop.effect || "";
-    } else {
-      ui.drop.hidden = true;
+    if (ui.drop) {
+      if (spin.drop) {
+        ui.drop.hidden = false;
+        if (ui.dropTitle) ui.dropTitle.textContent = spin.drop.title || "Drop";
+        if (ui.dropSub) ui.dropSub.textContent = spin.drop.effect || "";
+      } else {
+        ui.drop.hidden = true;
+      }
     }
 
-    ui.btnSlotSpin.disabled = false;
-    ui.btnAuto.disabled = false;
+    if (ui.btnSlotSpin) ui.btnSlotSpin.disabled = false;
+    if (ui.btnAuto) ui.btnAuto.disabled = false;
     spinningSlot = false;
 
     const free = Number(ME?.free_spins ?? 0);
@@ -840,24 +906,26 @@ async function slotSpinOnce() {
   }, 1250);
 }
 
-ui.btnSlotSpin.addEventListener("click", () => slotSpinOnce());
-ui.btnAuto.addEventListener("click", () => {
-  setAuto(!autoMode);
-  const free = Number(ME?.free_spins ?? 0);
-  if (autoMode && free > 0 && !spinningSlot) slotSpinOnce();
-});
-setAuto(autoMode);
+if (ui.btnSlotSpin) ui.btnSlotSpin.addEventListener("click", () => slotSpinOnce());
+if (ui.btnAuto) {
+  ui.btnAuto.addEventListener("click", () => {
+    setAuto(!autoMode);
+    const free = Number(ME?.free_spins ?? 0);
+    if (autoMode && free > 0 && !spinningSlot) slotSpinOnce();
+  });
+  setAuto(autoMode);
+}
 
-/* -------- Boot -------- */
+/* -------- boot -------- */
 (function boot() {
   initTelegramUi();
-  renderStaticText();
+  renderUiText();
   showTab("fight");
   pickEnemy();
 
   if (!initData()) {
-    ui.subtitle.textContent = "Open in Telegram";
-    setHint("Запусти мини-приложение из бота.");
+    if (ui.subtitle) ui.subtitle.textContent = "Open in Telegram";
+    setHint(LANG === "ru" ? "Запусти мини-приложение из бота." : LANG === "cn" ? "请从机器人打开。" : "Open from the bot.");
     return;
   }
 
@@ -866,9 +934,8 @@ setAuto(autoMode);
       await loadMe();
       await loadFriends();
       await loadDuels();
-      ui.subtitle.textContent = t("lobby");
     } catch (e) {
-      setHint(e.message || "Ошибка");
+      setHint(e.message || "Error");
     }
   })();
 })();
