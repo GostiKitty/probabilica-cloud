@@ -316,3 +316,13 @@ body{
   animation: winflash 320ms ease;
   pointer-events:none;
 }
+/* поддержка обоих вариантов: reel__strip и strip */
+.reel__strip,
+.strip{
+  position:absolute;
+  left:0; right:0;
+  top:0;
+  transform: translateY(0px);
+  transition: transform 900ms cubic-bezier(.12,72,11,1);
+  will-change: transform;
+}
