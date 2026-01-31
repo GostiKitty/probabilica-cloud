@@ -1,11 +1,19 @@
 import { json, auth } from "../_lib/auth.js";
-import { loadPlayer, savePlayer, withLock } from "../_lib/store.js";
+import { getOrCreatePlayer, savePlayer, withLock } from "../_lib/store.js";
+
+/*
+  SLOT / SPIN
+  - сервер-авторитетный
+  - мягкая RTP-подкрутка
+  - бонус по scatter
+  - защита от накликивания через KV-lock
+*/
+
+const SYMBOLS = ["BAR", "BELL", "SEVEN", "CHERRY", "STAR", "COIN", "SCATTER"];
 
 function rnd(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-
-const SYMBOLS = ["BAR", "BELL", "SEVEN", "CHERRY", "STAR", "COIN", "SCATTER"];
 
 export async function onRequest(ctx) {
   const a = await auth(ctx);
@@ -13,30 +21,33 @@ export async function onRequest(ctx) {
 
   const { env } = ctx;
   const uid = a.user_id;
+  const username = a.username || `user${uid}`;
 
-  return withLock(env, `spin:${uid}`, async () => {
-    const p = await loadPlayer(env, uid);
+  // 🔒 анти-спам лок (1.2 сек)
+  return withLock(env, `spin:${uid}`, 1200, async () => {
+    const p = await getOrCreatePlayer(env, uid, username);
 
-    // ---------- RTP ПОДКРУТКА ----------
+    /* ===== RTP-подкрутка ===== */
     const spins = p.stats?.spins || 0;
     const wins = p.stats?.wins || 0;
     const balance = p.coins || 0;
 
-    let luck = 0.92;
+    let luck = 0.92; // базовый RTP
 
-    if (spins > 20 && wins / Math.max(1, spins) < 0.25) luck += 0.06;
-    if (wins / Math.max(1, spins) > 0.45) luck -= 0.07;
-    if (balance < 50) luck += 0.05;
+    if (spins > 15 && wins / Math.max(1, spins) < 0.25) luck += 0.06; // давно не везло
+    if (wins / Math.max(1, spins) > 0.45) luck -= 0.07;              // слишком везёт
+    if (balance < 50) luck += 0.05;                                  // почти нищий
 
     const roll = Math.random();
 
     let kind = "lose";
     if (roll < luck * 0.05) kind = "big";
     else if (roll < luck * 0.18) kind = "win";
-    else if (roll < luck * 0.3) kind = "near";
+    else if (roll < luck * 0.30) kind = "near";
 
-    // ---------- СИМВОЛЫ ----------
+    /* ===== Символы ===== */
     let symbols;
+
     if (kind === "big") {
       const s = rnd(["SEVEN", "STAR"]);
       symbols = [s, s, s];
@@ -50,14 +61,14 @@ export async function onRequest(ctx) {
       symbols = [rnd(SYMBOLS), rnd(SYMBOLS), rnd(SYMBOLS)];
     }
 
-    // ---------- БОНУС ----------
+    /* ===== Бонус (scatter) ===== */
     let bonus = false;
     if (symbols.filter(s => s === "SCATTER").length >= 2) {
       kind = "scatter";
       bonus = true;
     }
 
-    // ---------- НАГРАДЫ ----------
+    /* ===== Награды ===== */
     let winCoins = 0;
     let winXp = 1;
 
@@ -65,9 +76,10 @@ export async function onRequest(ctx) {
     if (kind === "big") winCoins = 50 + Math.floor(Math.random() * 50);
     if (kind === "scatter") winCoins = 20;
 
-    p.coins = (p.coins || 0) + winCoins;
-    p.xp = (p.xp || 0) + winXp;
+    p.coins += winCoins;
+    p.xp += winXp;
 
+    /* ===== Статы для RTP ===== */
     p.stats = p.stats || {};
     p.stats.spins = spins + 1;
     if (kind === "win" || kind === "big") {
