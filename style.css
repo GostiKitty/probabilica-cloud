@@ -402,3 +402,4 @@ body, html {
 .slot-glow.is-bonus {
   box-shadow: 0 0 40px rgba(255,215,0,.9);
 }
+#bonusOverlay { pointer-events: auto !important; }

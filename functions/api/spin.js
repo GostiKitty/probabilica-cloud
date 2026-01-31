@@ -10,14 +10,6 @@ import {
   withLock,
 } from "../_lib/store.js";
 
-/*
-  SLOT / SPIN
-  - сервер-авторитетный
-  - мягкая RTP-подкрутка
-  - бонус по scatter
-  - защита от накликивания через KV-lock
-*/
-
 const SYMBOLS = ["BAR", "BELL", "SEVEN", "CHERRY", "STAR", "COIN", "SCATTER"];
 
 function rnd(arr) {
@@ -29,24 +21,27 @@ export async function onRequest({ request, env }) {
     const initData = getInitDataFromRequest(request);
     const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
 
-    // 🔒 анти-спам лок (1.2 сек) — у тебя withLock(env, key, ttlMs, fn)
-    return await withLock(env, `spin:${userId}`, 1200, async () => {
+    // ⚠️ KV TTL минимум 60 сек — Cloudflare правило
+    return await withLock(env, `spin:${userId}`, 60_000, async () => {
       const p = await getOrCreatePlayer(env, userId, username);
 
-      /* ===== RTP-подкрутка (мягко, незаметно) ===== */
+      // ✅ мягкий антиспам: реальный кулдаун 1100мс (без KV TTL)
+      const now = Date.now();
+      const last = p.last_spin_ts || 0;
+      if (now - last < 1100) {
+        return json(429, { detail: "Тише, ковбой. Не DDOSь удачу." });
+      }
+      p.last_spin_ts = now;
+
+      // ---------- RTP-подкрутка ----------
       const spins = p.stats?.spins || 0;
       const wins = p.stats?.wins || 0;
       const balance = p.coins || 0;
 
-      let luck = 0.92; // базовый RTP
+      let luck = 0.92;
 
-      // давно не везёт → чуть теплее
       if (spins > 15 && wins / Math.max(1, spins) < 0.25) luck += 0.06;
-
-      // слишком везёт → сушим
       if (wins / Math.max(1, spins) > 0.45) luck -= 0.07;
-
-      // бедняга → поддержим (чтобы не ливнул)
       if (balance < 50) luck += 0.05;
 
       const roll = Math.random();
@@ -56,7 +51,7 @@ export async function onRequest({ request, env }) {
       else if (roll < luck * 0.18) kind = "win";
       else if (roll < luck * 0.30) kind = "near";
 
-      /* ===== Символы (результат только сервером) ===== */
+      // ---------- Символы ----------
       let symbols;
 
       if (kind === "big") {
@@ -72,14 +67,14 @@ export async function onRequest({ request, env }) {
         symbols = [rnd(SYMBOLS), rnd(SYMBOLS), rnd(SYMBOLS)];
       }
 
-      /* ===== Бонус (scatter) ===== */
+      // ---------- Бонус ----------
       let bonus = false;
       if (symbols.filter(s => s === "SCATTER").length >= 2) {
         kind = "scatter";
         bonus = true;
       }
 
-      /* ===== Награды ===== */
+      // ---------- Награды ----------
       let winCoins = 0;
       let winXp = 1;
 
@@ -90,27 +85,20 @@ export async function onRequest({ request, env }) {
       p.coins = (p.coins || 0) + winCoins;
       p.xp = (p.xp || 0) + winXp;
 
-      /* ===== Статы для RTP ===== */
       p.stats = p.stats || {};
       p.stats.spins = spins + 1;
-      if (kind === "win" || kind === "big") {
-        p.stats.wins = wins + 1;
-      }
+      if (kind === "win" || kind === "big") p.stats.wins = wins + 1;
 
       await savePlayer(env, p);
 
       return json(200, {
-        spin: {
-          symbols,
-          kind,
-          winCoins,
-          winXp,
-          bonus,
-        },
+        spin: { symbols, kind, winCoins, winXp, bonus },
         profile: p,
       });
     });
+
   } catch (e) {
-    return json(401, { detail: `Auth failed: ${e.message || e}` });
+    // ❗ больше не “Auth failed” на любую хрень — даём честную ошибку
+    return json(401, { detail: e?.message || String(e) });
   }
 }
