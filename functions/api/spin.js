@@ -1,104 +1,99 @@
-import {
-  json,
-  getInitDataFromRequest,
-  verifyInitData,
-} from "../_lib/auth.js";
+import { json, getInitDataFromRequest, verifyInitData } from "../_lib/auth.js";
+import { getOrCreatePlayer, savePlayer, withLock, createBonusOffer } from "../_lib/store.js";
+import { spinSlot } from "../_lib/wheel.js";
 
-import {
-  getOrCreatePlayer,
-  savePlayer,
-  withLock,
-} from "../_lib/store.js";
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function randU32(){ const a=new Uint32Array(1); crypto.getRandomValues(a); return a[0]>>>0; }
 
-const SYMBOLS = ["BAR", "BELL", "SEVEN", "CHERRY", "STAR", "COIN", "SCATTER"];
-
-function rnd(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-export async function onRequest({ request, env }) {
-  try {
+export async function onRequest({ request, env }){
+  try{
     const initData = getInitDataFromRequest(request);
     const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
 
-    // ⚠️ KV TTL минимум 60 сек — Cloudflare правило
-    return await withLock(env, `spin:${userId}`, 60_000, async () => {
+    if(request.method !== "POST") return json(405, { error:"Method not allowed" });
+
+    return await withLock(env, `spin:${userId}`, 60_000, async ()=>{
       const p = await getOrCreatePlayer(env, userId, username);
 
-      // ✅ мягкий антиспам: реальный кулдаун 1100мс (без KV TTL)
+      // мягкий антиспам (чтобы UX был норм)
       const now = Date.now();
-      const last = p.last_spin_ts || 0;
-      if (now - last < 1100) {
-        return json(429, { detail: "Тише, ковбой. Не DDOSь удачу." });
-      }
-      p.last_spin_ts = now;
-
-      // ---------- RTP-подкрутка ----------
-      const spins = p.stats?.spins || 0;
-      const wins = p.stats?.wins || 0;
-      const balance = p.coins || 0;
-
-      let luck = 0.92;
-
-      if (spins > 15 && wins / Math.max(1, spins) < 0.25) luck += 0.06;
-      if (wins / Math.max(1, spins) > 0.45) luck -= 0.07;
-      if (balance < 50) luck += 0.05;
-
-      const roll = Math.random();
-
-      let kind = "lose";
-      if (roll < luck * 0.05) kind = "big";
-      else if (roll < luck * 0.18) kind = "win";
-      else if (roll < luck * 0.30) kind = "near";
-
-      // ---------- Символы ----------
-      let symbols;
-
-      if (kind === "big") {
-        const s = rnd(["SEVEN", "STAR"]);
-        symbols = [s, s, s];
-      } else if (kind === "win") {
-        const s = rnd(["CHERRY", "COIN", "BELL"]);
-        symbols = [s, s, rnd(SYMBOLS)];
-      } else if (kind === "near") {
-        const s = rnd(["SEVEN", "STAR"]);
-        symbols = [s, s, rnd(SYMBOLS.filter(x => x !== s))];
-      } else {
-        symbols = [rnd(SYMBOLS), rnd(SYMBOLS), rnd(SYMBOLS)];
+      const hasFree = (p.free_spins ?? 0) > 0;
+      if(!hasFree){
+        const dt = now - (p.last_spin_ts || 0);
+        if(dt < 950) return json(429, { detail:"Тише, чемпион. Не дрочи кнопку." });
       }
 
-      // ---------- Бонус ----------
-      let bonus = false;
-      if (symbols.filter(s => s === "SCATTER").length >= 2) {
-        kind = "scatter";
-        bonus = true;
+      // ставка за спин
+      if(hasFree){
+        p.free_spins = Math.max(0, (p.free_spins||0) - 1);
+      }else{
+        if((p.coins||0) < 5) return json(400, { detail:"Не хватает монет. Иди в PvE страдать." });
+        p.coins -= 5;
+        p.last_spin_ts = now;
       }
 
-      // ---------- Награды ----------
-      let winCoins = 0;
-      let winXp = 1;
+      // pity system (НЕ «подкрутка», а анти-фрустрация)
+      p.stats_meta = p.stats_meta || { spins:0, wins:0, loss_streak:0 };
 
-      if (kind === "win") winCoins = 10 + Math.floor(Math.random() * 15);
-      if (kind === "big") winCoins = 50 + Math.floor(Math.random() * 50);
-      if (kind === "scatter") winCoins = 20;
+      const luck = clamp(Number(p.stats?.luck || 1), 1, 20);
+      const bonusMode = (p.bonus_until || 0) > now;
 
-      p.coins = (p.coins || 0) + winCoins;
-      p.xp = (p.xp || 0) + winXp;
+      // если длинная серия лузов — слегка поднимаем шанс хорошего исхода
+      const ls = Number(p.stats_meta.loss_streak || 0);
+      const luckBoost = ls >= 6 ? 3 : ls >= 4 ? 2 : ls >= 2 ? 1 : 0;
 
-      p.stats = p.stats || {};
-      p.stats.spins = spins + 1;
-      if (kind === "win" || kind === "big") p.stats.wins = wins + 1;
+      const seed = randU32();
+      const spin = spinSlot({ seed, luck: clamp(luck + luckBoost, 1, 20), bonusMode });
+
+      // награды
+      p.coins = (p.coins||0) + (spin.winCoins||0);
+      p.xp = (p.xp||0) + (spin.winXp||0);
+
+      // meter
+      p.meter = clamp((p.meter||0) + (spin.kind === "lose" ? 1 : 2), 0, 10);
+
+      let meter_triggered = false;
+      if(p.meter >= 10){
+        p.meter = 0;
+        p.free_spins = (p.free_spins||0) + 3;
+        meter_triggered = true;
+      }
+
+      // scatter -> free spins + bonus offer
+      let bonus_offer = null;
+      if(spin.kind === "scatter"){
+        p.free_spins = (p.free_spins||0) + 2;
+        bonus_offer = await createBonusOffer(env, p.user_id, { base: "scatter" });
+      }
+
+      // big -> короткий бонус режим
+      if(spin.kind === "big"){
+        p.bonus_until = now + 2*60*1000;
+      }
+
+      // stat tracking
+      p.stats_meta.spins = (p.stats_meta.spins||0) + 1;
+      if(spin.kind === "win" || spin.kind === "big"){
+        p.stats_meta.wins = (p.stats_meta.wins||0) + 1;
+        p.stats_meta.loss_streak = 0;
+      }else{
+        p.stats_meta.loss_streak = (p.stats_meta.loss_streak||0) + 1;
+      }
 
       await savePlayer(env, p);
 
       return json(200, {
-        spin: { symbols, kind, winCoins, winXp, bonus },
-        profile: p,
+        spin: {
+          ...spin,
+          meter_triggered,
+          bonus_until: p.bonus_until || 0,
+          bonus_offer,
+        },
+        profile: p
       });
     });
 
-  } catch (e) {
-    // ❗ больше не “Auth failed” на любую хрень — даём честную ошибку
+  }catch(e){
     return json(401, { detail: e?.message || String(e) });
   }
 }
