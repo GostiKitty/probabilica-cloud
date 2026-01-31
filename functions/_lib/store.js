@@ -8,50 +8,63 @@ function duelKey(duelId) {
   return `duel:${duelId}`;
 }
 
+/* ================= LOCK ================= */
+export async function withLock(env, key, ttlMs, fn) {
+  const lockKey = `lock:${key}`;
+  if (await env.PROB_KV.get(lockKey)) {
+    throw new Error("Locked");
+  }
+
+  await env.PROB_KV.put(lockKey, "1", {
+    expirationTtl: Math.ceil(ttlMs / 1000),
+  });
+
+  try {
+    return await fn();
+  } finally {
+    await env.PROB_KV.delete(lockKey);
+  }
+}
+
+/* ================= PLAYER ================= */
 export async function getOrCreatePlayer(env, userId, username) {
-  const key = playerKey(userId);
-  let p = await env.PROB_KV.get(key, "json");
+  let p = await env.PROB_KV.get(playerKey(userId), "json");
 
   if (!p) {
     p = {
       user_id: userId,
       username: username || `user${userId}`,
 
-      // RPG/slot state
-      avatar_id: "char|str=1|def=1|int=1|luck=1",
+      avatar_id: "char|neo",
       coins: 150,
       level: 1,
       xp: 0,
-
-      // meta/rating
       glory: 0,
 
-      // daily meta (PvE)
-      daily_pve_ts: 0,
-
-      // slot meta
       free_spins: 0,
-      meter: 0,           // 0..10
-      bonus_until: 0,     // timestamp ms
-      last_spin_ts: 0
-    };
+      meter: 0,
+      bonus_until: 0,
+      last_spin_ts: 0,
 
-    await env.PROB_KV.put(key, JSON.stringify(p));
+      daily_pve_ts: 0,
+      pve_streak: 0,
+    };
+    await env.PROB_KV.put(playerKey(userId), JSON.stringify(p));
     return p;
   }
 
-  // миграции/дефолты (если у старых профилей полей нет)
+  // миграции
+  if (p.glory == null) p.glory = 0;
   if (p.free_spins == null) p.free_spins = 0;
   if (p.meter == null) p.meter = 0;
   if (p.bonus_until == null) p.bonus_until = 0;
   if (p.last_spin_ts == null) p.last_spin_ts = 0;
-
-  if (p.glory == null) p.glory = 0;
   if (p.daily_pve_ts == null) p.daily_pve_ts = 0;
+  if (p.pve_streak == null) p.pve_streak = 0;
 
   if (username && p.username !== username) {
     p.username = username;
-    await env.PROB_KV.put(key, JSON.stringify(p));
+    await env.PROB_KV.put(playerKey(userId), JSON.stringify(p));
   }
 
   return p;
@@ -61,79 +74,63 @@ export async function savePlayer(env, p) {
   await env.PROB_KV.put(playerKey(p.user_id), JSON.stringify(p));
 }
 
-/* ---------------- FRIENDS ---------------- */
-
+/* ================= FRIENDS ================= */
 export async function getFriends(env, userId) {
-  const list = await env.PROB_KV.get(friendsKey(userId), "json");
-  return Array.isArray(list) ? list : [];
+  return (await env.PROB_KV.get(friendsKey(userId), "json")) || [];
 }
 
 export async function addFriend(env, userId, friendId) {
   friendId = Number(friendId);
-  if (!Number.isFinite(friendId) || friendId <= 0) throw new Error("Bad friend_id");
-  if (friendId === userId) throw new Error("Cannot add yourself");
+  if (!friendId || friendId === userId) throw new Error("Bad friend");
 
-  const list = await getFriends(env, userId);
-  if (!list.includes(friendId)) {
-    list.push(friendId);
-    await env.PROB_KV.put(friendsKey(userId), JSON.stringify(list));
-  }
+  const a = await getFriends(env, userId);
+  const b = await getFriends(env, friendId);
 
-  const list2 = await getFriends(env, friendId);
-  if (!list2.includes(userId)) {
-    list2.push(userId);
-    await env.PROB_KV.put(friendsKey(friendId), JSON.stringify(list2));
-  }
+  if (!a.includes(friendId)) a.push(friendId);
+  if (!b.includes(userId)) b.push(userId);
 
-  return list;
+  await env.PROB_KV.put(friendsKey(userId), JSON.stringify(a));
+  await env.PROB_KV.put(friendsKey(friendId), JSON.stringify(b));
 }
 
-/* ---------------- DUELS ---------------- */
-
+/* ================= DUELS ================= */
 function randId() {
-  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  return crypto.randomUUID();
 }
 
-export async function createDuel(env, fromId, toId, stake) {
-  toId = Number(toId);
-  stake = Number(stake);
-
-  if (!Number.isFinite(toId) || toId <= 0) throw new Error("Bad to_id");
-  if (toId === fromId) throw new Error("Cannot duel yourself");
+export async function createDuel(env, from, to, stake) {
   if (![10, 25, 50].includes(stake)) throw new Error("Bad stake");
-
-  const duelId = randId();
-  const seed = Math.floor(Math.random() * 1e9);
+  if (from === to) throw new Error("Self duel");
 
   const duel = {
-    duel_id: duelId,
-    from: fromId,
-    to: toId,
+    duel_id: randId(),
+    from,
+    to,
     stake,
-    seed,
+    seed: Math.floor(Math.random() * 1e9),
     created_ts: Date.now(),
     resolved: false,
-    winner: null
+    winner: null,
+    text: {},
   };
 
-  await env.PROB_KV.put(duelKey(duelId), JSON.stringify(duel));
+  await env.PROB_KV.put(duelKey(duel.duel_id), JSON.stringify(duel));
   return duel;
 }
 
-export async function getDuel(env, duelId) {
-  return await env.PROB_KV.get(duelKey(duelId), "json");
+export async function getDuel(env, id) {
+  return await env.PROB_KV.get(duelKey(id), "json");
 }
 
-export async function listDuelsForUser(env, userId, limit = 30) {
+export async function listDuelsForUser(env, userId, limit = 20) {
   const it = await env.PROB_KV.list({ prefix: "duel:" });
-  const duels = [];
+  const out = [];
 
   for (const k of it.keys) {
     const d = await env.PROB_KV.get(k.name, "json");
-    if (!d) continue;
-    if (d.from === userId || d.to === userId) duels.push(d);
+    if (d && (d.from === userId || d.to === userId)) out.push(d);
   }
 
-  duels.sort((a, b) => (b.created_ts || 0) - (a.created_ts || 0));
-  return duels.slice(0, limit);
+  out.sort((a, b) => b.created_ts - a.created_ts);
+  return out.slice(0, limit);
 }
