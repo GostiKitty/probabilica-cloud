@@ -1,107 +1,96 @@
-import { json, getInitDataFromRequest, verifyInitData } from "../_lib/auth.js";
-import { getOrCreatePlayer, savePlayer } from "../_lib/store.js";
-import { spinSlot } from "../_lib/wheel.js";
+import { json, auth } from "../_lib/auth.js";
+import { getPlayer, savePlayer, withLock } from "../_lib/store.js";
 
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+/*
+RTP-логика:
+- базовый RTP ~92%
+- если игрок давно в минусе → чуть чаще win/near
+- если часто выигрывает → сушим
+- всё незаметно
+*/
 
-function randU32() {
-  const a = new Uint32Array(1);
-  crypto.getRandomValues(a);
-  return a[0] >>> 0;
+function rnd(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export async function onRequest({ request, env }) {
-  try {
-    const initData = getInitDataFromRequest(request);
-    const { userId, username } = await verifyInitData(initData, env.BOT_TOKEN);
+const SYMBOLS = ["BAR", "BELL", "SEVEN", "CHERRY", "STAR", "COIN", "SCATTER"];
 
-    const p = await getOrCreatePlayer(env, userId, username);
+export async function onRequest(ctx) {
+  const a = await auth(ctx);
+  if (!a.ok) return a.res;
 
-    if (request.method !== "POST") return json(405, { error: "Method not allowed" });
+  const { env } = ctx;
+  const uid = a.user_id;
 
-    // анти-спам: обычные спины слегка ограничим, фриспины — нет
-    const now = Date.now();
-    const hasFree = (p.free_spins ?? 0) > 0;
-    if (!hasFree) {
-      const dt = now - (p.last_spin_ts || 0);
-      if (dt < 900) return json(429, { error: "Too fast" });
-    }
+  return withLock(env, `spin:${uid}`, async () => {
+    const p = await getPlayer(env, uid);
 
-    const bonusMode = (p.bonus_until || 0) > now;
-    const seed = randU32();
+    // ---- RTP ПОДКРУТКА ----
+    const spins = p.stats?.spins || 0;
+    const wins = p.stats?.wins || 0;
+    const balance = p.coins;
 
-    // достаем luck из avatar_id
-    function parseLuck(avatarId) {
-      const s = String(avatarId || "");
-      if (!s.startsWith("char|")) return 1;
-      const parts = s.split("|");
-      for (const it of parts) {
-        const [k, v] = it.split("=");
-        if (k === "luck") return clamp(Number(v) || 1, 1, 10);
-      }
-      return 1;
-    }
+    let luck = 0.92; // базовый RTP
 
-    const luck = parseLuck(p.avatar_id);
+    if (spins > 20 && wins / spins < 0.25) luck += 0.06; // давно не везло
+    if (wins / Math.max(1, spins) > 0.45) luck -= 0.07; // слишком везёт
+    if (balance < 50) luck += 0.05; // почти нищий
 
-    const spin = spinSlot({ seed, luck, bonusMode });
+    const roll = Math.random();
 
-    // экономика
-    if (hasFree) {
-      p.free_spins = Math.max(0, (p.free_spins || 0) - 1);
+    let kind = "lose";
+    if (roll < luck * 0.05) kind = "big";
+    else if (roll < luck * 0.18) kind = "win";
+    else if (roll < luck * 0.3) kind = "near";
+
+    // ---- СИМВОЛЫ ----
+    let symbols;
+    if (kind === "big") {
+      const s = rnd(["SEVEN", "STAR"]);
+      symbols = [s, s, s];
+    } else if (kind === "win") {
+      const s = rnd(["CHERRY", "COIN", "BELL"]);
+      symbols = [s, s, rnd(SYMBOLS)];
+    } else if (kind === "near") {
+      const s = rnd(["SEVEN", "STAR"]);
+      symbols = [s, s, rnd(SYMBOLS.filter(x => x !== s))];
     } else {
-      // платный спин
-      p.coins = Math.max(0, (p.coins || 0) - 5);
-      p.last_spin_ts = now;
+      symbols = [rnd(SYMBOLS), rnd(SYMBOLS), rnd(SYMBOLS)];
     }
 
-    // награды
-    p.coins = (p.coins || 0) + (spin.winCoins || 0);
-    p.xp = (p.xp || 0) + (spin.winXp || 0);
-
-    // meter
-    p.meter = clamp((p.meter || 0) + (spin.kind === "lose" ? 1 : 2), 0, 10);
-
-    let meter_triggered = false;
-    if (p.meter >= 10) {
-      p.meter = 0;
-      p.free_spins = (p.free_spins || 0) + 3;
-      meter_triggered = true;
+    // ---- БОНУС (SCATTER) ----
+    let bonus = false;
+    if (symbols.filter(s => s === "SCATTER").length >= 2) {
+      bonus = true;
+      kind = "scatter";
     }
 
-    // scatter -> free spins
-    if (spin.kind === "scatter") {
-      p.free_spins = (p.free_spins || 0) + 2;
-    }
+    // ---- НАГРАДЫ ----
+    let winCoins = 0;
+    let winXp = 1;
 
-    // bonus cosmetics
-    let bonus_until = p.bonus_until || 0;
-    if (spin.kind === "big") {
-      bonus_until = now + 2 * 60 * 1000;
-      p.bonus_until = bonus_until;
-    }
+    if (kind === "win") winCoins = 10 + Math.floor(Math.random() * 15);
+    if (kind === "big") winCoins = 50 + Math.floor(Math.random() * 50);
+    if (kind === "scatter") winCoins = 20;
+
+    p.coins += winCoins;
+    p.xp += winXp;
+
+    p.stats = p.stats || {};
+    p.stats.spins = spins + 1;
+    if (kind === "win" || kind === "big") p.stats.wins = wins + 1;
 
     await savePlayer(env, p);
 
     return json(200, {
       spin: {
-        ...spin,
-        meter_triggered,
-        bonus_until: p.bonus_until || 0,
+        symbols,
+        kind,
+        winCoins,
+        winXp,
+        bonus, // ← важно
       },
-      profile: {
-        user_id: p.user_id,
-        username: p.username,
-        avatar_id: p.avatar_id,
-        coins: p.coins,
-        level: p.level,
-        xp: p.xp,
-        free_spins: p.free_spins ?? 0,
-        meter: p.meter ?? 0,
-        bonus_until: p.bonus_until ?? 0,
-      }
+      profile: p,
     });
-  } catch (e) {
-    return json(401, { detail: `Auth failed: ${e.message || e}` });
-  }
+  });
 }

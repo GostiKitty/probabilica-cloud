@@ -341,3 +341,64 @@ button,
 body, html {
   touch-action: manipulation;
 }
+/* ===== SLOT ===== */
+
+.slot {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.reel {
+  width: 72px;
+  height: 150px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: radial-gradient(circle at top, #1a1a1a, #000);
+  box-shadow: inset 0 0 20px rgba(0,0,0,.6);
+}
+
+.reel-strip {
+  will-change: transform;
+}
+
+.sym {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  color: #eee;
+}
+
+.sym-seven { color: #ff5252; }
+.sym-scatter { color: #ffd700; }
+.sym-coin { color: #7fff00; }
+
+.payline {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255,255,255,.15);
+}
+
+.payline.is-hit {
+  background: #fff;
+  box-shadow: 0 0 12px #fff;
+}
+
+/* подсветка выигрыша */
+.slot-glow.is-win {
+  box-shadow: 0 0 20px rgba(0,255,100,.6);
+}
+.slot-glow.is-big {
+  box-shadow: 0 0 30px rgba(255,80,80,.8);
+}
+.slot-glow.is-bonus {
+  box-shadow: 0 0 40px rgba(255,215,0,.9);
+}
