@@ -326,3 +326,18 @@ body{
   transition: transform 900ms cubic-bezier(.12,72,11,1);
   will-change: transform;
 }
+/* === Telegram Mini App FIX === */
+button,
+.btn,
+.stake {
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+
+[data-panel] {
+  pointer-events: auto;
+}
+
+body, html {
+  touch-action: manipulation;
+}

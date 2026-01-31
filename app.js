@@ -1,8 +1,7 @@
-/* Probabilica app.js (frontend) */
-
+/* ================== BASIC ================== */
 function el(id) { return document.getElementById(id); }
 
-/* ================= UI ================= */
+/* ================== UI MAP ================== */
 const ui = {
   subtitle: el("subtitle"),
 
@@ -21,18 +20,6 @@ const ui = {
   tabSlot: el("tabSlot"),
   panels: Array.from(document.querySelectorAll("[data-panel]")),
 
-  ttlPve: el("ttlPve"),
-  ttlPvp: el("ttlPvp"),
-  ttlFriends: el("ttlFriends"),
-  ttlSlot: el("ttlSlot"),
-  ttlHistory: el("ttlHistory"),
-
-  lblCoins: el("lblCoins"),
-  lblLevel: el("lblLevel"),
-  lblXp: el("lblXp"),
-  lblGlory: el("lblGlory"),
-  lblFriendCode: el("lblFriendCode"),
-
   btnPveFight: el("btnPveFight"),
   fightLog: el("fightLog"),
   enemyName: el("enemyName"),
@@ -48,59 +35,43 @@ const ui = {
   pvpToId: el("pvpToId"),
   pvpStake: el("pvpStake"),
   btnCreateDuel: el("btnCreateDuel"),
-  duelLog: el("duelLog"),
   btnRefreshDuels: el("btnRefreshDuels"),
   pvpStatus: el("pvpStatus"),
-
-  freeSpins: el("freeSpins"),
-  meter: el("meter"),
-  lblFree: el("lblFree"),
-  lblMeter: el("lblMeter"),
 
   reel0: el("reel0"),
   reel1: el("reel1"),
   reel2: el("reel2"),
-  payline: document.querySelector(".payline"),
-  slotGlow: el("slotGlow"),
   btnSlotSpin: el("btnSlotSpin"),
   btnAuto: el("btnAuto"),
   slotComment: el("slotComment"),
   slotHistory: el("slotHistory"),
 
-  drop: el("drop"),
-  dropTitle: el("dropTitle"),
-  dropSub: el("dropSub"),
-
-  hint: el("hint"),
   toast: el("toast"),
 };
 
-/* ================= TOAST ================= */
+/* ================== SAFE CLICK ================== */
+function safeClick(el, fn) {
+  if (!el) return;
+  el.addEventListener("click", fn, { passive: true });
+  el.addEventListener("touchstart", fn, { passive: true });
+}
+
+/* ================== TOAST ================== */
 let toastTimer = null;
 function toast(text, type = "info") {
   if (!ui.toast) return;
   if (toastTimer) clearTimeout(toastTimer);
 
-  ui.toast.hidden = false;
   ui.toast.textContent = text;
-  ui.toast.classList.remove("is-show", "is-win", "is-bad");
-  if (type === "win") ui.toast.classList.add("is-win");
-  if (type === "bad") ui.toast.classList.add("is-bad");
-
-  ui.toast.getBoundingClientRect();
-  ui.toast.classList.add("is-show");
+  ui.toast.className = `toast ${type}`;
+  ui.toast.hidden = false;
 
   toastTimer = setTimeout(() => {
-    ui.toast.classList.remove("is-show");
-    setTimeout(() => { ui.toast.hidden = true; }, 220);
+    ui.toast.hidden = true;
   }, 1400);
 }
 
-function setHint(msg) {
-  if (ui.hint) ui.hint.textContent = msg || "";
-}
-
-/* ================= TELEGRAM ================= */
+/* ================== TELEGRAM ================== */
 function tg() { return window.Telegram?.WebApp; }
 function initData() { return tg()?.initData || ""; }
 
@@ -110,8 +81,6 @@ function initTelegramUi() {
   try {
     t.ready();
     t.expand();
-    t.setHeaderColor?.("#0A0A0A");
-    t.setBackgroundColor?.("#0A0A0A");
   } catch {}
 }
 
@@ -119,7 +88,7 @@ function haptic(type = "light") {
   try { tg()?.HapticFeedback?.impactOccurred?.(type); } catch {}
 }
 
-/* ================= API ================= */
+/* ================== API ================== */
 async function api(path, body) {
   const res = await fetch(path, {
     method: body ? "POST" : "GET",
@@ -131,43 +100,55 @@ async function api(path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-
-  if (!res.ok) {
-    throw new Error(data?.detail || data?.error || `HTTP ${res.status}`);
-  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.detail || data?.error || "API error");
   return data;
 }
 
-/* ================= STATE ================= */
+/* ================== STATE ================== */
 let ME = null;
 let currentStake = 25;
+let LANG = "ru";
 
-/* ================= PROFILE ================= */
-function syncProfileToUI(p) {
-  ui.coins.textContent = p.coins ?? 0;
-  ui.level.textContent = p.level ?? 1;
-  ui.xp.textContent = p.xp ?? 0;
-  ui.glory.textContent = p.glory ?? 0;
-  ui.friendCode.textContent = p.user_id ?? 0;
-  ui.freeSpins.textContent = p.free_spins ?? 0;
-  ui.meter.textContent = p.meter ?? 0;
+/* ================== PROFILE ================== */
+function syncProfile(p) {
+  ui.coins.textContent = p.coins;
+  ui.level.textContent = p.level;
+  ui.xp.textContent = p.xp;
+  ui.glory.textContent = p.glory;
+  ui.friendCode.textContent = p.user_id;
 }
 
 async function loadMe() {
   const r = await api("/api/me");
   ME = r.profile || r;
-  syncProfileToUI(ME);
+  syncProfile(ME);
 }
 
-/* ================= PvE ================= */
+/* ================== TABS ================== */
+function showTab(name) {
+  ui.panels.forEach(p => {
+    p.hidden = p.dataset.panel !== name;
+  });
+
+  [ui.tabFight, ui.tabFriends, ui.tabSlot].forEach(b =>
+    b.classList.remove("is-active")
+  );
+
+  if (name === "fight") ui.tabFight.classList.add("is-active");
+  if (name === "friends") ui.tabFriends.classList.add("is-active");
+  if (name === "slot") ui.tabSlot.classList.add("is-active");
+}
+
+safeClick(ui.tabFight, () => showTab("fight"));
+safeClick(ui.tabFriends, () => showTab("friends"));
+safeClick(ui.tabSlot, () => showTab("slot"));
+
+/* ================== PvE ================== */
 const ENEMIES = [
   { id: "gost", name: "ГОСТ", sub: "мертв, но живёт" },
   { id: "rng", name: "Рандом без seed", sub: "ему похуй" },
   { id: "deadline", name: "Дедлайн", sub: "дышит в спину" },
-  { id: "review", name: "Ревьюер", sub: "просит переписать всё" },
 ];
 
 let enemy = null;
@@ -177,23 +158,16 @@ function pickEnemy() {
   ui.enemySub.textContent = enemy.sub;
   ui.enemyHp.style.width = "100%";
 }
-pickEnemy();
 
 ui.stakes.forEach(b => {
-  b.onclick = () => {
+  safeClick(b, () => {
     currentStake = Number(b.dataset.stake);
-    ui.stakes.forEach(x => x.classList.toggle("btn--primary", x === b));
-    ui.stakes.forEach(x => x.classList.toggle("btn--secondary", x !== b));
-  };
+    ui.stakes.forEach(x => x.classList.remove("btn--primary"));
+    b.classList.add("btn--primary");
+  });
 });
-ui.stakes[1]?.click();
 
-ui.btnPveFight.onclick = async () => {
-  if (!initData()) {
-    toast("Open in Telegram", "bad");
-    return;
-  }
-
+safeClick(ui.btnPveFight, async () => {
   try {
     const r = await api("/api/pve", {
       enemy_id: enemy.id,
@@ -202,29 +176,26 @@ ui.btnPveFight.onclick = async () => {
     });
 
     ME = r.profile;
-    syncProfileToUI(ME);
+    syncProfile(ME);
 
-    ui.enemyName.textContent = `${r.enemy.name} [T${r.enemy.tier}]`;
     ui.fightLog.textContent = r.result.win
       ? `WIN +${r.result.deltaCoins}`
       : `LOSE ${r.result.deltaCoins}`;
-
-    if (r.daily) toast(`Daily +${r.daily.coins}`, "win");
 
     haptic(r.result.win ? "medium" : "light");
     pickEnemy();
   } catch (e) {
     toast(e.message, "bad");
   }
-};
+});
 
-/* ================= FRIENDS ================= */
+/* ================== FRIENDS ================== */
 async function loadFriends() {
   const r = await api("/api/friends");
   ui.friends.innerHTML = "";
 
   if (!r.friends.length) {
-    ui.friends.innerHTML = `<div class="result">Пока пусто.</div>`;
+    ui.friends.innerHTML = `<div class="item">Empty</div>`;
     return;
   }
 
@@ -236,7 +207,7 @@ async function loadFriends() {
         <div class="item__title">${f.user_id}</div>
         <div class="item__sub">${f.username || ""}</div>
       </div>
-      <button class="btn btn--secondary">⚔</button>
+      <button class="btn">⚔</button>
     `;
     row.querySelector("button").onclick = () => {
       ui.pvpToId.value = f.user_id;
@@ -246,69 +217,38 @@ async function loadFriends() {
   }
 }
 
-ui.btnAddFriend.onclick = async () => {
+safeClick(ui.btnAddFriend, async () => {
   const id = Number(ui.friendInput.value);
   if (!id) return;
 
   try {
     await api("/api/friends", { friend_id: id });
     ui.friendInput.value = "";
-    await loadFriends();
-    toast("Добавлено", "win");
+    loadFriends();
+    toast("Added", "win");
   } catch (e) {
     toast(e.message, "bad");
   }
-};
+});
 
-/* ================= DUELS ================= */
-async function loadDuels() {
-  const r = await api("/api/duels");
-  ui.duels.innerHTML = "";
-  ui.pvpStatus.textContent = r.duels.length || "—";
-
-  for (const d of r.duels) {
-    const row = document.createElement("div");
-    row.className = "item";
-
-    const text = d.resolved
-      ? d.text?.[LANG] || "DONE"
-      : `from ${d.from} → ${d.to}`;
-
-    row.innerHTML = `
-      <div class="item__main">
-        <div class="item__title">#${d.duel_id.slice(0, 6)} · ${d.stake}</div>
-        <div class="item__sub">${text}</div>
-      </div>
-      ${
-        !d.resolved && d.to === ME.user_id
-          ? `<button class="btn btn--primary">Accept</button>`
-          : `<div class="badge2">${d.resolved ? "DONE" : "WAIT"}</div>`
-      }
-    `;
-
-    if (!d.resolved && d.to === ME.user_id) {
-      row.querySelector("button").onclick = async () => {
-        await api("/api/duel_resolve", { duel_id: d.duel_id, lang: LANG });
-        await loadMe();
-        await loadDuels();
-        toast("Resolved", "win");
-      };
-    }
-
-    ui.duels.appendChild(row);
+/* ================== SLOT (минимально, живой) ================== */
+safeClick(ui.btnSlotSpin, async () => {
+  try {
+    const r = await api("/api/spin", {});
+    ME = r.profile;
+    syncProfile(ME);
+    ui.slotComment.textContent = r.spin.kind.toUpperCase();
+    haptic("light");
+  } catch (e) {
+    toast(e.message, "bad");
   }
-}
+});
 
-ui.btnRefreshDuels.onclick = () => loadDuels();
-
-/* ================= BOOT ================= */
+/* ================== BOOT ================== */
 initTelegramUi();
 pickEnemy();
+showTab("fight");
 
 loadMe()
   .then(loadFriends)
-  .then(loadDuels)
-  .catch(e => {
-    setHint(e.message);
-    toast(e.message, "bad");
-  });
+  .catch(e => toast(e.message, "bad"));
