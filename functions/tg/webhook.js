@@ -20,31 +20,23 @@ export async function onRequest({ request, env }) {
   const text = update?.message?.text || "";
 
   if (!chatId || !env.BOT_TOKEN) return json(200, { ok: true });
-
-  // отвечаем только на /start (иначе будет бесконечный спам)
   if (!text.startsWith("/start")) return json(200, { ok: true });
 
-  let webappUrl =
+  const webappUrl =
     (env.WEBAPP_URL && env.WEBAPP_URL.trim()) ||
-    "https://probabilica-cloud.pages.dev/?v=14";
-
-  if (!webappUrl.includes("v=")) {
-    webappUrl += (webappUrl.includes("?") ? "&" : "?") + "v=14";
-  }
+    "https://probabilica-cloud.pages.dev/?v=15";
 
   await tgCall(env, "sendMessage", {
     chat_id: chatId,
     text: "Probabilica",
     reply_markup: {
-      keyboard: [[
+      inline_keyboard: [[
         {
-          text: "Играть",
+          text: "Ааааааааааааааааааааа",
           web_app: { url: webappUrl }
         }
-      ]],
-      resize_keyboard: true
+      ]]
     }
-
   });
 
   return json(200, { ok: true });
