@@ -1,13 +1,5 @@
 import { json, auth } from "../_lib/auth.js";
-import { getPlayer, savePlayer, withLock } from "../_lib/store.js";
-
-/*
-RTP-логика:
-- базовый RTP ~92%
-- если игрок давно в минусе → чуть чаще win/near
-- если часто выигрывает → сушим
-- всё незаметно
-*/
+import { loadPlayer, savePlayer, withLock } from "../_lib/store.js";
 
 function rnd(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -23,18 +15,18 @@ export async function onRequest(ctx) {
   const uid = a.user_id;
 
   return withLock(env, `spin:${uid}`, async () => {
-    const p = await getPlayer(env, uid);
+    const p = await loadPlayer(env, uid);
 
-    // ---- RTP ПОДКРУТКА ----
+    // ---------- RTP ПОДКРУТКА ----------
     const spins = p.stats?.spins || 0;
     const wins = p.stats?.wins || 0;
-    const balance = p.coins;
+    const balance = p.coins || 0;
 
-    let luck = 0.92; // базовый RTP
+    let luck = 0.92;
 
-    if (spins > 20 && wins / spins < 0.25) luck += 0.06; // давно не везло
-    if (wins / Math.max(1, spins) > 0.45) luck -= 0.07; // слишком везёт
-    if (balance < 50) luck += 0.05; // почти нищий
+    if (spins > 20 && wins / Math.max(1, spins) < 0.25) luck += 0.06;
+    if (wins / Math.max(1, spins) > 0.45) luck -= 0.07;
+    if (balance < 50) luck += 0.05;
 
     const roll = Math.random();
 
@@ -43,7 +35,7 @@ export async function onRequest(ctx) {
     else if (roll < luck * 0.18) kind = "win";
     else if (roll < luck * 0.3) kind = "near";
 
-    // ---- СИМВОЛЫ ----
+    // ---------- СИМВОЛЫ ----------
     let symbols;
     if (kind === "big") {
       const s = rnd(["SEVEN", "STAR"]);
@@ -58,14 +50,14 @@ export async function onRequest(ctx) {
       symbols = [rnd(SYMBOLS), rnd(SYMBOLS), rnd(SYMBOLS)];
     }
 
-    // ---- БОНУС (SCATTER) ----
+    // ---------- БОНУС ----------
     let bonus = false;
     if (symbols.filter(s => s === "SCATTER").length >= 2) {
-      bonus = true;
       kind = "scatter";
+      bonus = true;
     }
 
-    // ---- НАГРАДЫ ----
+    // ---------- НАГРАДЫ ----------
     let winCoins = 0;
     let winXp = 1;
 
@@ -73,12 +65,14 @@ export async function onRequest(ctx) {
     if (kind === "big") winCoins = 50 + Math.floor(Math.random() * 50);
     if (kind === "scatter") winCoins = 20;
 
-    p.coins += winCoins;
-    p.xp += winXp;
+    p.coins = (p.coins || 0) + winCoins;
+    p.xp = (p.xp || 0) + winXp;
 
     p.stats = p.stats || {};
     p.stats.spins = spins + 1;
-    if (kind === "win" || kind === "big") p.stats.wins = wins + 1;
+    if (kind === "win" || kind === "big") {
+      p.stats.wins = wins + 1;
+    }
 
     await savePlayer(env, p);
 
@@ -88,7 +82,7 @@ export async function onRequest(ctx) {
         kind,
         winCoins,
         winXp,
-        bonus, // ← важно
+        bonus,
       },
       profile: p,
     });
