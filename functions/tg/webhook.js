@@ -36,10 +36,15 @@ export async function onRequest({ request, env }) {
     chat_id: chatId,
     text: "Probabilica",
     reply_markup: {
-      keyboard: [[{ text: "Играть", web_app: { url: webappUrl } }]],
-      resize_keyboard: true,
-      one_time_keyboard: true,
-    },
+      keyboard: [[
+        {
+          text: "Играть",
+          web_app: { url: webappUrl }
+        }
+      ]],
+      resize_keyboard: true
+    }
+
   });
 
   return json(200, { ok: true });
